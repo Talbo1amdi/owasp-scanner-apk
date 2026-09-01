@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">اسکنر امنیتی</string>
+    <string name="title_activity_main">اسکنر امنیتی</string>
+    <string name="package_name">ir.owasp.scanner</string>
+    <string name="custom_url_scheme">ir.owasp.scanner</string>
+</resources>

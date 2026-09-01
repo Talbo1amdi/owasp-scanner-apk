@@ -1,0 +1,14 @@
+# Node.js
+node_modules/
+
+# Build tool caches
+.gradle/
+
+# Local scraps
+*.txt
+local.properties
+
+# Android build outputs (handled by android/android/.gitignore too, kept for clarity)
+*.apk
+*.aab
+android/android/app/build/

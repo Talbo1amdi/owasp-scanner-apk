@@ -1,0 +1,961 @@
+﻿<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اسکنر امنیتی</title>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Vazirmatn', 'Segoe UI', Tahoma, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0c29 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+            direction: rtl;
+            text-align: right;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        header { text-align: center; margin-bottom: 30px; }
+        h1 {
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #ff416c, #ff4b2b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .subtitle { color: #a0a0a0; font-size: 1.1rem; }
+        .scanner-box { background: rgba(255,255,255,0.07); border-radius: 15px; padding: 30px; margin-bottom: 30px; border: 1px solid rgba(255,255,255,0.1); }
+        .input-group { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+        input[type="text"] {
+            flex: 1; padding: 15px 20px; font-size: 1.1rem; border: 2px solid #3a7bd5;
+            border-radius: 10px; background: rgba(0,0,0,0.3); color: #fff; outline: none;
+            transition: all 0.3s; min-width: 200px; font-family: inherit;
+        }
+        input[type="text"]:focus { border-color: #ff416c; box-shadow: 0 0 20px rgba(255,65,108,0.3); }
+        input::placeholder { color: #666; }
+        .btn {
+            padding: 15px 30px; font-size: 1rem; font-weight: bold; border: none; border-radius: 10px;
+            cursor: pointer; transition: all 0.3s; letter-spacing: 0.5px; font-family: inherit;
+        }
+        .btn-primary { background: linear-gradient(135deg, #ff416c, #ff4b2b); color: #fff; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(255,65,108,0.4); }
+        .btn-danger { background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; }
+        .btn-danger:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(231,76,60,0.4); }
+        .btn-export { background: linear-gradient(135deg, #2ecc71, #27ae60); color: #fff; }
+        .btn-export:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(46,204,113,0.4); }
+        .progress-bar { width: 100%; height: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; overflow: hidden; margin: 20px 0; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #ff416c, #ff4b2b); width: 0%; transition: width 0.3s; }
+        .status { text-align: center; margin: 20px 0; font-size: 1.1rem; color: #a0a0a0; }
+        .danger-box { background: rgba(231,76,60,0.15); border: 1px solid #e74c3c; border-radius: 10px; padding: 20px; margin-bottom: 30px; }
+        .danger-box h3 { color: #e74c3c; margin-bottom: 10px; }
+        .section-title { font-size: 1.4rem; margin: 30px 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid; display: flex; align-items: center; gap: 10px; }
+        .section-blue { color: #3498db; border-color: #3498db; }
+        .section-red { color: #e74c3c; border-color: #e74c3c; }
+        .section-flag { color: #f1c40f; border-color: #f1c40f; }
+        .tests-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 20px; }
+        .test-card { background: rgba(0,0,0,0.3); border-radius: 10px; padding: 20px; border: 1px solid rgba(255,255,255,0.1); transition: all 0.3s; border-right-width: 3px; }
+        .test-card:hover { transform: translateY(-5px); }
+        .test-card.blue-card:hover { border-color: #3498db; }
+        .test-card.red-card { border-right: 3px solid #e74c3c; }
+        .test-card.red-card:hover { border-color: #e74c3c; }
+        .test-card.flag-card { border-right: 3px solid #f1c40f; }
+        .test-card.flag-card:hover { border-color: #f1c40f; }
+        .test-card h3 { margin-bottom: 10px; display: flex; align-items: center; gap: 10px; font-size: 1rem; }
+        .test-card.blue-card h3 { color: #3498db; }
+        .test-card.red-card h3 { color: #e74c3c; }
+        .test-card.flag-card h3 { color: #f1c40f; }
+        .test-card h3::before { content: ''; width: 10px; height: 10px; border-radius: 50%; background: #666; flex-shrink: 0; }
+        .test-card.testing h3::before { background: #f39c12; animation: pulse 1s infinite; }
+        .test-card.passed h3::before { background: #2ecc71; }
+        .test-card.failed h3::before { background: #e74c3c; }
+        .test-card.warning h3::before { background: #f39c12; }
+        .test-card.flagged h3::before { background: #f1c40f; animation: pulse 0.5s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.5} }
+        .test-card p { color: #a0a0a0; font-size: 0.85rem; line-height: 1.6; }
+        .results-box { background: rgba(0,0,0,0.4); border-radius: 15px; padding: 25px; margin-top: 30px; }
+        .results-box h2 { color: #ff416c; margin-bottom: 20px; }
+        .result-item { padding: 15px; border-radius: 8px; margin-bottom: 10px; border-right: 4px solid; text-align: right; }
+        .result-item.safe { background: rgba(46,204,113,0.15); border-color: #2ecc71; }
+        .result-item.danger { background: rgba(231,76,60,0.15); border-color: #e74c3c; }
+        .result-item.warning { background: rgba(243,156,18,0.15); border-color: #f39c12; }
+        .result-item.info { background: rgba(52,152,219,0.15); border-color: #3498db; }
+        .result-item.flag { background: rgba(241,196,15,0.2); border-color: #f1c40f; }
+        .result-item strong { display: block; margin-bottom: 5px; }
+        .result-item .details { font-size: 0.9rem; color: #ccc; white-space: pre-line; direction: ltr; text-align: left; font-family: 'Consolas', monospace; }
+        .stats { display: flex; justify-content: center; gap: 30px; margin: 20px 0; flex-wrap: wrap; }
+        .stat-item { text-align: center; }
+        .stat-value { font-size: 2rem; font-weight: bold; }
+        .stat-label { color: #a0a0a0; font-size: 0.9rem; }
+        .stat-safe .stat-value { color: #2ecc71; }
+        .stat-warning .stat-value { color: #f39c12; }
+        .stat-danger .stat-value { color: #e74c3c; }
+        .stat-info .stat-value { color: #3498db; }
+        .stat-flag .stat-value { color: #f1c40f; }
+        .flag-display { background: rgba(241,196,15,0.1); border: 2px solid #f1c40f; border-radius: 15px; padding: 25px; margin: 20px 0; text-align: center; }
+        .flag-display h3 { color: #f1c40f; margin-bottom: 15px; font-size: 1.3rem; }
+        .flag-list { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+        .flag-badge { background: rgba(241,196,15,0.2); border: 1px solid #f1c40f; padding: 8px 16px; border-radius: 20px; font-family: 'Consolas', monospace; font-size: 0.95rem; color: #f1c40f; }
+        .no-flags { color: #666; font-style: italic; }
+        .log-box { background: #0d0d0d; border-radius: 10px; padding: 20px; margin-top: 20px; max-height: 300px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 0.85rem; direction: ltr; text-align: left; }
+        .log-entry { padding: 4px 0; border-bottom: 1px solid #1a1a1a; }
+        .log-entry.info { color: #3498db; }
+        .log-entry.success { color: #2ecc71; }
+        .log-entry.error { color: #e74c3c; }
+        .log-entry.warning { color: #f39c12; }
+        .log-entry.flag { color: #f1c40f; font-weight: bold; }
+        .app-foot { text-align: center; color: #666; font-size: 0.85rem; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>اسکنر امنیتی سایت</h1>
+            <p class="subtitle">آزمون امنیتی کامل با جستجوی فلگ</p>
+        </header>
+
+        <div class="danger-box">
+            <h3>فقط با مجوز استفاده کنید</h3>
+            <p>تنها هدف‌هایی را آزمایش کنید که مالک آن‌ها هستید یا مجوز کتبی صریح دارید. اسکن بدون مجوز غیرقانونی است.</p>
+        </div>
+
+        <div class="scanner-box">
+            <div class="input-group">
+                <input type="text" id="targetUrl" placeholder="نشانی سایت را وارد کنید (مثلاً https://target-site.com)" value="https://example.com">
+                <button class="btn btn-primary" id="scanBtn" onclick="startScan()">شروع اسکن</button>
+                <button class="btn btn-danger" id="stopBtn" onclick="stopScan()" style="display:none">توقف</button>
+                <button class="btn btn-export" onclick="exportReport()">خروجی گزارش</button>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="status" id="statusText">آماده برای اسکن</div>
+
+            <div class="section-title section-blue">تیم آبی – آزمون‌های دفاعی</div>
+            <div class="tests-grid">
+                <div class="test-card blue-card" id="test-headers"><h3>هدیرهای امنیتی</h3><p>بررسی نبود CSP ،HSTS ،X-Frame-Options و موارد دیگر</p></div>
+                <div class="test-card blue-card" id="test-ssl"><h3>بررسی SSL/TLS</h3><p>بررسی HTTPS و محتوای ترکیبی</p></div>
+                <div class="test-card blue-card" id="test-cookies"><h3>امنیت کوکی</h3><p>بررسی HttpOnly ،Secure ،SameSite</p></div>
+                <div class="test-card blue-card" id="test-directory"><h3>نمایش فهرست دایرکتوری</h3><p>جستجوی دایرکتوری‌های در معرض دید</p></div>
+                <div class="test-card blue-card" id="test-robots"><h3>robots.txt و sitemap</h3><p>بررسی مسیرهای حساس در معرض دید</p></div>
+                <div class="test-card blue-card" id="test-technologies"><h3>شناسایی فناوری</h3><p>شناسایی CMS ،فریم‌ورک و نشت سرور</p></div>
+            </div>
+
+            <div class="section-title section-red">تیم قرمز – آزمون‌های حمله</div>
+            <div class="tests-grid">
+                <div class="test-card red-card" id="test-xss"><h3>تشخیص XSS</h3><p>بررسی بازتاب ورودی (پیش‌شرط XSS)</p></div>
+                <div class="test-card red-card" id="test-sqli"><h3>تزریق SQL</h3><p>ارسال محموله SQL برای یافتن نقاط تزریق</p></div>
+                <div class="test-card red-card" id="test-openredirect"><h3>تغییر مسیر باز</h3><p>آزمایش آسیب‌پذیری تغییر مسیر باز</p></div>
+                <div class="test-card red-card" id="test-cors"><h3>پیکربندی نادرست CORS</h3><p>آزمایش سیاست‌های CORS سهل‌گیرانه</p></div>
+                <div class="test-card red-card" id="test-sensfiles"><h3>در معرض بودن فایل‌های حساس</h3><p>جستجوی .env ،.git ،پشتیبان و نشت تنظیمات</p></div>
+                <div class="test-card red-card" id="test-cmdi"><h3>تزریق فرمان</h3><p>آزمایش تزریق فرمان سیستمعامل</p></div>
+            </div>
+
+            <div class="section-title section-flag">جستجوی فلگ</div>
+            <div class="tests-grid">
+                <div class="test-card flag-card" id="test-flagpage"><h3>اسکن الگوی فلگ</h3><p>بررسی صفحات برای الگوهای FLAG ،CTF ،KEY</p></div>
+                <div class="test-card flag-card" id="test-flagheaders"><h3>جستجوی فلگ در هدر</h3><p>بررسی هدرهای پاسخ برای فلگ پنهان</p></div>
+                <div class="test-card flag-card" id="test-flagpaths"><h3>کشف مسیرهای فلگ</h3><p>بررسی مسیرهای رایج فایل فلگ CTF</p></div>
+            </div>
+        </div>
+
+        <div class="flag-display">
+            <h3>فلگ‌های پیدا شده</h3>
+            <div class="flag-list" id="flagList">
+                <span class="no-flags">هنوز فلگی پیدا نشده – یک اسکن اجرا کنید</span>
+            </div>
+        </div>
+
+        <div class="results-box">
+            <h2>نتایج اسکن</h2>
+            <div class="stats">
+                <div class="stat-item stat-safe"><div class="stat-value" id="statSafe">0</div><div class="stat-label">امن</div></div>
+                <div class="stat-item stat-warning"><div class="stat-value" id="statWarning">0</div><div class="stat-label">هشدار</div></div>
+                <div class="stat-item stat-danger"><div class="stat-value" id="statDanger">0</div><div class="stat-label">مشکل</div></div>
+                <div class="stat-item stat-info"><div class="stat-value" id="statInfo">0</div><div class="stat-label">اطلاعات</div></div>
+                <div class="stat-item stat-flag"><div class="stat-value" id="statFlag">0</div><div class="stat-label">فلگ</div></div>
+            </div>
+            <div id="resultsList"></div>
+        </div>
+
+        <div class="log-box" id="logBox">
+            <div class="log-entry info">[INIT] اسکنر امنیتی راه‌اندازی شد.</div>
+        </div>
+        <div class="app-foot">اسکنر امنیتی فارسی – اجرای کاملاً سمت کلاینت (بدون سرور / بدون CORS)</div>
+    </div>
+
+<script>
+var scanning = false;
+var scanAborted = false;
+var results = { safe: 0, warning: 0, danger: 0, info: 0, flag: 0 };
+var foundFlags = [];
+var allResults = [];
+var BASE = '';
+
+function log(message, type) {
+    type = type || 'info';
+    var logBox = document.getElementById('logBox');
+    var entry = document.createElement('div');
+    entry.className = 'log-entry ' + type;
+    entry.textContent = '[' + new Date().toLocaleTimeString() + '] ' + message;
+    logBox.appendChild(entry);
+    logBox.scrollTop = logBox.scrollHeight;
+}
+
+function updateStatus(msg) {
+    document.getElementById('statusText').textContent = msg;
+}
+
+function setProgress(p) {
+    document.getElementById('progressFill').style.width = p + '%';
+}
+
+function setTestState(id, state) {
+    var el = document.getElementById('test-' + id);
+    if (!el) return;
+    el.className = el.className.replace(/(testing|passed|failed|warning|flagged)/g, '').trim() + ' ' + state;
+}
+
+function escapeHtml(str) {
+    return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function addResult(type, title, details) {
+    var list = document.getElementById('resultsList');
+    var item = document.createElement('div');
+    item.className = 'result-item ' + type;
+    item.innerHTML = '<strong>' + escapeHtml(title) + '</strong><div class="details">' + escapeHtml(details) + '</div>';
+    list.appendChild(item);
+    results[type] = (results[type] || 0) + 1;
+    document.getElementById('statSafe').textContent = results.safe;
+    document.getElementById('statWarning').textContent = results.warning;
+    document.getElementById('statDanger').textContent = results.danger;
+    document.getElementById('statInfo').textContent = results.info;
+    document.getElementById('statFlag').textContent = results.flag;
+    allResults.push({ type: type, title: title, details: details, time: new Date().toISOString() });
+}
+
+function addFlag(flag, source) {
+    for (var i = 0; i < foundFlags.length; i++) {
+        if (foundFlags[i] === flag) return;
+    }
+    foundFlags.push(flag);
+    var list = document.getElementById('flagList');
+    if (foundFlags.length === 1) { list.innerHTML = ''; }
+    var badge = document.createElement('span');
+    badge.className = 'flag-badge';
+    badge.textContent = flag;
+    list.appendChild(badge);
+    addResult('flag', 'FLAG FOUND', 'Source: ' + source + ' | Value: ' + flag);
+    log('*** FLAG CAPTURED: ' + flag + ' (from ' + source + ') ***', 'flag');
+}
+
+function isFlag(text) {
+    if (!text) return [];
+    var patterns = [
+        /flag\{[^\}]+\}/gi, /ctf\{[^\}]+\}/gi, /key\{[^\}]+\}/gi, /secret\{[^\}]+\}/gi,
+        /hctf\{[^\}]+\}/gi, /sctf\{[^\}]+\}/gi, /bctf\{[^\}]+\}/gi, /pctf\{[^\}]+\}/gi,
+        /dctf\{[^\}]+\}/gi, /easy\{[^\}]+\}/gi, /medium\{[^\}]+\}/gi, /hard\{[^\}]+\}/gi,
+        /galf\{[^\}]+\}/gi
+    ];
+    var found = [];
+    for (var i = 0; i < patterns.length; i++) {
+        var m = text.match(patterns[i]);
+        if (m) {
+            for (var j = 0; j < m.length; j++) {
+                if (found.indexOf(m[j]) === -1) found.push(m[j]);
+            }
+        }
+    }
+    return found;
+}
+
+function delay(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
+
+function makeUrl(path) {
+    return BASE + path;
+}
+
+/* ========== SERVERLESS HTTP (native, no server, no CORS) ========== */
+
+function isCapacitor() {
+    return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+}
+
+function normalizeHeaders(headers) {
+    var out = {};
+    if (!headers) return out;
+    var keys = Object.keys(headers);
+    for (var i = 0; i < keys.length; i++) {
+        out[keys[i].toLowerCase()] = headers[keys[i]];
+    }
+    return out;
+}
+
+async function nativeRequest(targetUrl) {
+    var plat = Capacitor.Plugins;
+    var Http = plat.Http;
+    var opts = {
+        url: targetUrl,
+        method: 'GET',
+        followRedirects: true,
+        connectTimeout: 15000,
+        readTimeout: 20000
+    };
+    var resp = await Http.request(opts);
+    var data = resp.data;
+    var body = '';
+    if (typeof data === 'string') {
+        body = data;
+    } else if (data != null) {
+        try { body = JSON.stringify(data); } catch (e) { body = String(data); }
+    }
+    var headers = normalizeHeaders(resp.headers);
+    return {
+        cors: true,
+        ok: resp.status >= 200 && resp.status < 300,
+        status: resp.status || 0,
+        body: body,
+        headers: headers,
+        contentType: headers['content-type'] || ''
+    };
+}
+
+async function webRequest(targetUrl) {
+    try {
+        var resp = await fetch(targetUrl, { method: 'GET', cache: 'no-store' });
+        var body = await resp.text();
+        return {
+            cors: true,
+            ok: resp.ok,
+            status: resp.status || 0,
+            body: body,
+            headers: normalizeHeaders(Object.fromEntries ? Object.fromEntries(resp.headers.entries()) : {}),
+            contentType: resp.headers.get('content-type') || ''
+        };
+    } catch (e) {
+        return { cors: false, ok: false, status: 0, body: '', headers: {}, contentType: '', error: 'web-blocked' };
+    }
+}
+
+async function smartFetch(targetUrl) {
+    if (isCapacitor() && Capacitor.Plugins.Http) {
+        try {
+            return await nativeRequest(targetUrl);
+        } catch (e) {
+            return { cors: false, ok: false, status: 0, body: '', headers: {}, contentType: '', error: 'native-error' };
+        }
+    }
+    return await webRequest(targetUrl);
+}
+
+function mapLimit(items, limit, fn) {
+    var results = new Array(items.length);
+    var index = 0;
+    var active = 0;
+    return new Promise(function(resolveAll) {
+        function worker() {
+            if (index >= items.length && active === 0) {
+                resolveAll(results);
+                return;
+            }
+            while (active < limit && index < items.length) {
+                var i = index++;
+                active++;
+                Promise.resolve(fn(items[i], i))
+                    .then(function(r) { results[i] = r; })
+                    ['catch'](function() { results[i] = undefined; })
+                    .then(function() {
+                        active--;
+                        worker();
+                    });
+            }
+        }
+        worker();
+    });
+}
+
+/* ========== BLUE TEAM TESTS ========== */
+
+async function checkSecurityHeaders() {
+    setTestState('headers', 'testing');
+    log('بررسی هدرهای امنیتی...', 'info');
+    updateStatus('در حال بررسی هدرهای امنیتی...');
+    var headersToCheck = [
+        'X-Frame-Options', 'X-Content-Type-Options',
+        'Strict-Transport-Security', 'Content-Security-Policy',
+        'Referrer-Policy', 'Permissions-Policy'
+    ];
+    var leakHeaders = ['x-powered-by', 'server'];
+    var resp = await smartFetch(BASE);
+    if (resp.cors) {
+        var missing = [], present = [], leaks = [];
+        var h = resp.headers;
+        for (var i = 0; i < headersToCheck.length; i++) {
+            var k = headersToCheck[i].toLowerCase();
+            if (h[k]) {
+                present.push(headersToCheck[i]);
+                log('OK: ' + headersToCheck[i], 'success');
+            } else {
+                missing.push(headersToCheck[i]);
+                log('ناموجود: ' + headersToCheck[i], 'error');
+            }
+        }
+        for (var j = 0; j < leakHeaders.length; j++) {
+            var lv = h[leakHeaders[j]];
+            if (lv) {
+                leaks.push(leakHeaders[j] + ': ' + lv);
+                log('نشت اطلاعات: ' + leakHeaders[j] + ' = ' + lv, 'error');
+            }
+        }
+        if (leaks.length) {
+            addResult('danger', 'نشت اطلاعات سرور', leaks.join('\n') + '\nمهاجم می‌تواند نسخه را شناسایی کند.');
+        }
+        if (missing.length === 0) {
+            setTestState('headers', 'passed');
+            addResult('safe', 'هدیرهای امنیتی کامل', 'هر ' + present.length + ' هدر موجود است.');
+        } else if (missing.length <= 3) {
+            setTestState('headers', 'warning');
+            addResult('warning', 'برخی هدرها ناقص هستند', 'ناقص: ' + missing.join(', '));
+        } else {
+            setTestState('headers', 'failed');
+            addResult('danger', 'هدیرهای حیاتی ناقص هستند', missing.length + ' هدر ناقص: ' + missing.join(', '));
+        }
+    } else {
+        setTestState('headers', 'warning');
+        addResult('warning', 'بررسی هدرها ناموفق', resp.error || 'امکان دریافت هدرهای هدف وجود ندارد.');
+    }
+}
+
+async function checkSSL() {
+    setTestState('ssl', 'testing');
+    log('بررسی SSL/TLS...', 'info');
+    updateStatus('در حال بررسی SSL/TLS...');
+    if (BASE.indexOf('https://') === 0) {
+        setTestState('ssl', 'passed');
+        addResult('safe', 'HTTPS فعال است', 'سایت از رمزنگاری HTTPS استفاده می‌کند.');
+        log('HTTPS فعال', 'success');
+    } else if (BASE.indexOf('http://') === 0) {
+        setTestState('ssl', 'failed');
+        addResult('danger', 'HTTPS استفاده نشده', 'HTTP شناسایی شد – داده‌ها رمزنگاری نشده‌اند.');
+        log('فقط HTTP – بدون رمزنگاری!', 'error');
+    } else {
+        setTestState('ssl', 'warning');
+        addResult('info', 'بررسی SSL', 'الگوی URL نامشخص است.');
+    }
+}
+
+async function checkCookies() {
+    setTestState('cookies', 'testing');
+    log('بررسی کوکی‌ها...', 'info');
+    updateStatus('در حال تحلیل کوکی‌ها...');
+    var resp = await smartFetch(BASE);
+    setTestState('cookies', 'passed');
+    var ck = resp.headers['set-cookie'];
+    if (ck) {
+        if (ck.indexOf('HttpOnly') === -1 || ck.indexOf('Secure') === -1) {
+            addResult('warning', 'ویژگی‌های کوکی ناقص', 'هدر Set-Cookie: ' + ck.substring(0, 300) + ' – ویژگی‌های HttpOnly/Secure/SameSite را بررسی کنید.');
+            setTestState('cookies', 'warning');
+        } else {
+            addResult('safe', 'کوکی‌ها امن به نظر می‌رسند', 'Set-Cookie شامل ویژگی‌های امنیتی است: ' + ck.substring(0, 150));
+        }
+    } else {
+        addResult('info', 'تحلیل کوکی', 'در پاسخ هدر Set-Cookie وجود ندارد.');
+    }
+    log('بررسی کوکی پایان یافت', 'success');
+}
+
+async function checkDirectoryListing() {
+    setTestState('directory', 'testing');
+    log('بررسی فهرست دایرکتوری...', 'info');
+    updateStatus('در حال بررسی فهرست دایرکتوری‌ها...');
+    var paths = ['/admin/', '/backup/', '/config/', '/data/', '/uploads/', '/images/', '/files/', '/temp/', '/old/', '/dev/'];
+    var accessible = [];
+    await mapLimit(paths, 5, async function(path) {
+        if (scanAborted) return;
+        var resp = await smartFetch(makeUrl(path));
+        if (resp.cors && resp.ok && resp.body) {
+            var lower = resp.body.toLowerCase();
+            if (lower.indexOf('index of') !== -1 || lower.indexOf('directory listing') !== -1) {
+                accessible.push(path);
+                log('فهرست دایرکتوری: ' + path, 'error');
+            }
+        }
+    });
+    if (accessible.length) {
+        setTestState('directory', 'failed');
+        addResult('danger', 'فهرست دایرکتوری در معرض دید', 'دایرکتوری‌های باز: ' + accessible.join(', '));
+    } else {
+        setTestState('directory', 'passed');
+        addResult('safe', 'بدون فهرست دایرکتوری باز', 'تعداد ' + paths.length + ' مسیر بررسی شد.');
+    }
+    log('بررسی دایرکتوری پایان یافت', 'success');
+}
+
+async function checkRobotsTxt() {
+    setTestState('robots', 'testing');
+    log('بررسی robots.txt...', 'info');
+    updateStatus('در حال تحلیل robots.txt...');
+    var resp = await smartFetch(makeUrl('/robots.txt'));
+    if (resp.cors && resp.ok && resp.body) {
+        var text = resp.body;
+        var sensitive = ['/admin', '/backup', '/config', '/database', '/private', '/secret', '/api', '/debug', '.env', '.git', 'wp-admin', 'phpmyadmin'];
+        var found = [];
+        for (var i = 0; i < sensitive.length; i++) {
+            if (text.toLowerCase().indexOf(sensitive[i]) !== -1) found.push(sensitive[i]);
+        }
+        var flags = isFlag(text);
+        for (var f = 0; f < flags.length; f++) addFlag(flags[f], 'robots.txt');
+        if (found.length) {
+            setTestState('robots', 'warning');
+            addResult('warning', 'robots.txt مسیرها را فاش می‌کند', 'مسیرهای حساس: ' + found.join(', '));
+        } else {
+            setTestState('robots', 'passed');
+            addResult('safe', 'robots.txt تمیز است', text.length + ' بایت، بدون مسیر حساس.');
+        }
+    } else {
+        setTestState('robots', 'passed');
+        addResult('info', 'robots.txt وجود ندارد', 'پیدا نشد یا خطا رخ داد.');
+    }
+}
+
+async function checkTechnologies() {
+    setTestState('technologies', 'testing');
+    log('شناسایی فناوری‌ها...', 'info');
+    updateStatus('در حال اثر انگشت فناوری...');
+    var resp = await smartFetch(BASE);
+    var html = resp.body || '';
+    var flags = isFlag(html);
+    for (var f = 0; f < flags.length; f++) addFlag(flags[f], 'صفحه اصلی');
+    var techs = [
+        { name: 'WordPress', p: ['wp-content', 'wp-includes', 'wordpress'] },
+        { name: 'Drupal', p: ['drupal', 'sites/default'] },
+        { name: 'Joomla', p: ['joomla', '/components/'] },
+        { name: 'React', p: ['react', '__NEXT_DATA__'] },
+        { name: 'Angular', p: ['ng-app', 'ng-controller', 'angular'] },
+        { name: 'Vue.js', p: ['vue.js', '__vue__'] },
+        { name: 'jQuery', p: ['jquery'] },
+        { name: 'PHP', p: ['x-powered-by: php', '.php'] },
+        { name: 'ASP.NET', p: ['asp.net', '__VIEWSTATE'] },
+        { name: 'Laravel', p: ['laravel', 'csrf-token'] },
+        { name: 'Django', p: ['csrfmiddlewaretoken'] },
+        { name: 'Express/Node', p: ['x-powered-by: express'] },
+        { name: 'Flask', p: ['werkzeug'] },
+        { name: 'Ruby on Rails', p: ['rails'] }
+    ];
+    var lower = html.toLowerCase();
+    var detected = [];
+    for (var i = 0; i < techs.length; i++) {
+        for (var j = 0; j < techs[i].p.length; j++) {
+            if (lower.indexOf(techs[i].p[j].toLowerCase()) !== -1) {
+                detected.push(techs[i].name);
+                log('فناوری: ' + techs[i].name, 'success');
+                break;
+            }
+        }
+    }
+    setTestState('technologies', 'passed');
+    if (detected.length) {
+        addResult('info', 'اثر انگشت فناوری', 'شناسایی شد: ' + detected.join(', ') + ' – CVEs شناخته‌شده را بررسی کنید.');
+    } else {
+        addResult('info', 'شناسایی فناوری', 'فناوری رایجی شناسایی نشد.');
+    }
+}
+
+/* ========== RED TEAM TESTS ========== */
+
+async function checkXSS() {
+    setTestState('xss', 'testing');
+    log('بررسی بازتاب ورودی (پیش‌شرط XSS)...', 'info');
+    updateStatus('در حال بررسی بازتاب ورودی...');
+    var marker = 'owaspzq7marker';
+    var params = ['q', 'search', 'query', 'input', 'name', 'page', 'url', 'test'];
+    var reflected = [];
+
+    await mapLimit(params, 4, async function(param) {
+        if (scanAborted) return;
+        var testUrl = makeUrl('/?' + param + '=' + marker);
+        var resp = await smartFetch(testUrl);
+        if (resp.cors && resp.body && resp.body.indexOf(marker) !== -1) {
+            reflected.push(param);
+            log('ورودی در "' + param + '" بازتاب شد – نقطه بالقوه XSS', 'warning');
+        }
+    });
+
+    if (reflected.length) {
+        setTestState('xss', 'warning');
+        addResult('warning', 'بازتاب ورودی یافت شد', 'این پارامترها ورودی را بدون پاکسازی بازتاب می‌دهند: ' + reflected.join(', ') + '. این یک بردار XSS محتمل است.\nبرای تأیید، با اسکنر XSS (مثلاً OWASP ZAP) آزمایش کنید.');
+    } else {
+        setTestState('xss', 'passed');
+        addResult('safe', 'بازتاب ورودی یافت نشد', 'هیچ پارامتر URL ورودی‌ای را بازتاب نداد. بدون نقطه بازتاب در ' + params.length + ' پارامتر.');
+    }
+    log('بررسی بازتاب پایان یافت', 'success');
+}
+
+async function checkSQLi() {
+    setTestState('sqli', 'testing');
+    log('اجرای آزمایش‌های تزریق SQL...', 'error');
+    updateStatus('در حال آزمایش تزریق SQL...');
+    var payloads = ["'", "1' OR '1'='1", "1' UNION SELECT NULL--", "admin'--", "' OR 1=1--"];
+    var errorPatterns = [
+        'sql syntax', 'mysql_fetch', 'sqlite3', 'postgresql', 'ORA-',
+        'Microsoft OLE DB', 'ODBC SQL Server', 'You have an error',
+        'Warning: mysql', 'pg_query', 'mysql_num_rows', 'SQL syntax',
+        'Query failed', 'Database error', 'valid MySQL result',
+        'check the manual that corresponds to your MySQL', 'SQLite/JDBCDriver'
+    ];
+    var params = ['id', 'user', 'page', 'cat', 'item', 'type'];
+    var vulnFound = [];
+
+    await mapLimit(params, 4, async function(param) {
+        if (scanAborted) return;
+        for (var pji = 0; pji < payloads.length; pji++) {
+            var testUrl = makeUrl('/?' + param + '=' + encodeURIComponent(payloads[pji]));
+            var resp = await smartFetch(testUrl);
+            if (resp.cors && resp.body) {
+                var lower = resp.body.toLowerCase();
+                for (var ei = 0; ei < errorPatterns.length; ei++) {
+                    if (lower.indexOf(errorPatterns[ei].toLowerCase()) !== -1) {
+                        vulnFound.push({ param: param, payload: payloads[pji], error: errorPatterns[ei] });
+                        log('خطای SQLi در "' + param + '": ' + errorPatterns[ei], 'error');
+                        break;
+                    }
+                }
+            }
+            if (vulnFound.length) break;
+        }
+    });
+
+    if (vulnFound.length) {
+        setTestState('sqli', 'failed');
+        var details = vulnFound.map(function(v) { return 'Param: [' + v.param + '] | Payload: ' + v.payload + ' | Error: ' + v.error; }).join('\n');
+        addResult('danger', 'تزریق SQL شناسایی شد', details + '\nخطای پایگاه‌داده تزریق را تأیید می‌کند.');
+    } else {
+        setTestState('sqli', 'passed');
+        addResult('safe', 'آزمایش SQLi پاک', 'SQLi مبتنی بر خطا پیدا نشد.');
+    }
+    log('آزمایش SQLi پایان یافت', 'success');
+}
+
+async function checkOpenRedirect() {
+    setTestState('openredirect', 'testing');
+    log('آزمایش تغییر مسیر باز...', 'error');
+    updateStatus('در حال آزمایش تغییر مسیر باز...');
+    var payloads = ['https://evil.com', '//evil.com'];
+    var params = ['url', 'redirect', 'next', 'return', 'goto', 'dest', 'redir', 'continue'];
+    var vulnFound = [];
+
+    await mapLimit(params, 4, async function(param) {
+        if (scanAborted) return;
+        for (var pji = 0; pji < payloads.length; pji++) {
+            var testUrl = makeUrl('/?' + param + '=' + encodeURIComponent(payloads[pji]));
+            var resp = await smartFetch(testUrl);
+            if (resp.cors && resp.body && resp.body.indexOf('evil.com') !== -1) {
+                vulnFound.push({ param: param, payload: payloads[pji] });
+                log('تغییر مسیر باز: "' + param + '" به evil.com اشاره می‌کند!', 'error');
+                break;
+            }
+        }
+    });
+
+    if (vulnFound.length) {
+        setTestState('openredirect', 'failed');
+        var details = vulnFound.map(function(v) { return 'Param: [' + v.param + '] | Payload: ' + v.payload; }).join('\n');
+        addResult('danger', 'آسیب‌پذیری تغییر مسیر باز', details + '\nکاربران می‌توانند به سایت‌های فیشینگ هدایت شوند.');
+    } else {
+        setTestState('openredirect', 'passed');
+        addResult('safe', 'بدون تغییر مسیر باز', 'هیچ تغییر مسیر باز در ' + params.length + ' پارامتر یافت نشد.');
+    }
+    log('آزمایش تغییر مسیر باز پایان یافت', 'success');
+}
+
+async function checkCORS() {
+    setTestState('cors', 'testing');
+    log('بررسی پیکربندی CORS...', 'error');
+    updateStatus('در حال بررسی CORS...');
+    var misconfigs = [];
+    var resp = await smartFetch(BASE);
+    if (resp.cors) {
+        var acao = resp.headers['access-control-allow-origin'];
+        var acac = resp.headers['access-control-allow-credentials'];
+        if (acao === '*') {
+            misconfigs.push('Access-Control-Allow-Origin وحشی (*). هر سایتی می‌تواند پاسخ‌ها را بخواند.');
+            log('CORS: ACAO وحشی', 'error');
+        }
+        if (acac === 'true' && acao && acao !== '') {
+            misconfigs.push('Allow-Credentials=true با ACAO=' + acao + '. کوکی‌های بین‌دامنه‌ای ممکن است سرقت شوند.');
+            log('CORS: Allow-Credentials با ACAO', 'error');
+        }
+    }
+
+    if (misconfigs.length) {
+        setTestState('cors', 'failed');
+        addResult('danger', 'پیکربندی نادرست CORS', misconfigs.join('\n') + '\nمهاجمان می‌توانند داده‌ها را به‌صورت متقاطع بدزدند.');
+    } else {
+        setTestState('cors', 'passed');
+        addResult('safe', 'پیکربندی CORS درست است', 'پیکربندی نادرست CORS آشکاری شناسایی نشد.');
+    }
+    log('بررسی CORS پایان یافت', 'success');
+}
+
+async function checkSensitiveFiles() {
+    setTestState('sensfiles', 'testing');
+    log('جستجوی فایل‌های حساس...', 'error');
+    updateStatus('در حال اسکن فایل‌های حساس در معرض دید...');
+    var paths = [
+        '/.env', '/.git/config', '/.git/HEAD', '/.htaccess', '/.htpasswd',
+        '/.well-known/security.txt', '/README.md', '/package.json', '/.gitignore'
+    ];
+    var exposed = [];
+
+    await mapLimit(paths, 5, async function(path) {
+        if (scanAborted) return;
+        var resp = await smartFetch(makeUrl(path));
+        if (resp.cors && resp.ok && resp.body && resp.body.length > 0 && resp.body.length < 50000) {
+            var flags = isFlag(resp.body);
+            for (var f = 0; f < flags.length; f++) addFlag(flags[f], 'فایل حساس: ' + path);
+            exposed.push({ path: path, status: resp.status, size: resp.body.length });
+            log('در معرض دید: ' + path + ' (' + resp.status + '، ' + resp.body.length + ' بایت)', 'error');
+        }
+    });
+
+    if (exposed.length) {
+        setTestState('sensfiles', 'failed');
+        var details = exposed.map(function(e) { return e.path + ' (' + e.status + '، ' + e.size + ' بایت)'; }).join('\n');
+        addResult('danger', 'فایل‌های حساس در معرض دید', details + '\nممکن است حاوی اعتبارنامه یا تنظیمات باشد.');
+    } else {
+        setTestState('sensfiles', 'passed');
+        addResult('safe', 'بدون فایل حساس در معرض دید', 'تعداد ' + paths.length + ' مسیر بررسی شد. هیچ‌کدام در دسترس نبود.');
+    }
+    log('جستجوی فایل‌های حساس پایان یافت', 'success');
+}
+
+async function checkCMDi() {
+    setTestState('cmdi', 'testing');
+    log('آزمایش تزریق فرمان...', 'error');
+    updateStatus('در حال آزمایش تزریق فرمان...');
+    var payloads = ['|id', ';id', '`id`', '$(id)', '|whoami', ';cat /etc/passwd'];
+    var markers = ['uid=', 'root:', 'www-data', 'apache', 'nginx'];
+    var params = ['host', 'ip', 'ping', 'domain', 'cmd', 'query'];
+    var vulnFound = [];
+
+    await mapLimit(params, 4, async function(param) {
+        if (scanAborted) return;
+        for (var pji = 0; pji < payloads.length; pji++) {
+            var testUrl = makeUrl('/?' + param + '=' + encodeURIComponent('127.0.0.1' + payloads[pji]));
+            var resp = await smartFetch(testUrl);
+            if (resp.cors && resp.body) {
+                for (var mi = 0; mi < markers.length; mi++) {
+                    if (resp.body.indexOf(markers[mi]) !== -1) {
+                        vulnFound.push({ param: param, payload: payloads[pji], marker: markers[mi] });
+                        log('تزریق فرمان: "' + param + '" خروجی OS را نشان می‌دهد!', 'error');
+                        break;
+                    }
+                }
+            }
+            if (vulnFound.length) break;
+        }
+    });
+
+    if (vulnFound.length) {
+        setTestState('cmdi', 'failed');
+        var details = vulnFound.map(function(v) { return 'Param: [' + v.param + '] | Payload: ' + v.payload; }).join('\n');
+        addResult('danger', 'تزریق فرمان شناسایی شد', details + '\nاجرای فرمان سیستمعامل تأیید شد.');
+    } else {
+        setTestState('cmdi', 'passed');
+        addResult('safe', 'آزمایش CMDi پاک', 'تزریق فرمانی پیدا نشد.');
+    }
+    log('آزمایش CMDi پایان یافت', 'success');
+}
+
+/* ========== FLAG HUNTING TESTS ========== */
+
+async function scanPageForFlags() {
+    setTestState('flagpage', 'testing');
+    log('اسکن صفحات برای فلگ...', 'flag');
+    updateStatus('در حال شکار فلگ در محتوای صفحات...');
+    var pages = ['/', '/index.html', '/home', '/about',
+                 '/flag', '/flag.txt', '/readme.txt', '/README.md',
+                 '/secret', '/hidden', '/hint.txt',
+                 '/robots.txt', '/sitemap.xml', '/.well-known/security.txt'];
+    var totalFlags = 0;
+
+    await mapLimit(pages, 5, async function(page) {
+        if (scanAborted) return;
+        var resp = await smartFetch(makeUrl(page));
+        if (resp.cors && resp.body) {
+            var flags = isFlag(resp.body);
+            for (var f = 0; f < flags.length; f++) {
+                addFlag(flags[f], 'صفحه: ' + page);
+                totalFlags++;
+            }
+        }
+    });
+
+    setTestState('flagpage', totalFlags > 0 ? 'flagged' : 'passed');
+    log('اسکن فلگ صفحه پایان یافت: ' + totalFlags + ' فلگ', totalFlags > 0 ? 'flag' : 'success');
+}
+
+async function checkFlagInHeaders() {
+    setTestState('flagheaders', 'testing');
+    log('بررسی هدرها برای فلگ...', 'flag');
+    updateStatus('در حال شکار فلگ در هدرها...');
+    var flagsInHeaders = 0;
+    var resp = await smartFetch(BASE);
+    if (resp.cors) {
+        var keys = Object.keys(resp.headers);
+        for (var i = 0; i < keys.length; i++) {
+            var flags = isFlag(keys[i] + ': ' + resp.headers[keys[i]]);
+            for (var f = 0; f < flags.length; f++) {
+                addFlag(flags[f], 'هدر: ' + keys[i]);
+                flagsInHeaders++;
+            }
+        }
+    }
+    setTestState('flagheaders', flagsInHeaders > 0 ? 'flagged' : 'passed');
+    log('شکار فلگ هدر پایان یافت: ' + flagsInHeaders + ' فلگ', flagsInHeaders > 0 ? 'flag' : 'success');
+}
+
+async function checkFlagPaths() {
+    setTestState('flagpaths', 'testing');
+    log('بررسی مسیرهای فلگ...', 'flag');
+    updateStatus('در حال اسکن مسیرهای فلگ...');
+    var paths = [
+        '/flag', '/flag.txt', '/flag.php', '/flag.html', '/flag.json', '/flag.xml',
+        '/flags', '/flags.txt', '/secret', '/secret.txt', '/.flag', '/.flag.txt',
+        '/ctf', '/ctf/flag.txt', '/admin/flag', '/admin/flag.txt',
+        '/api/flag', '/api/flag.json', '/data/flag.txt', '/.well-known/flag.txt'
+    ];
+    var pathFlags = 0;
+
+    await mapLimit(paths, 5, async function(path) {
+        if (scanAborted) return;
+        var resp = await smartFetch(makeUrl(path));
+        if (resp.cors && resp.ok && resp.body) {
+            var flags = isFlag(resp.body);
+            if (flags.length) {
+                for (var f = 0; f < flags.length; f++) {
+                    addFlag(flags[f], 'مسیر فلگ: ' + path);
+                    pathFlags++;
+                }
+                log('فلگ در ' + path + ': ' + flags[0], 'flag');
+            }
+        }
+    });
+
+    setTestState('flagpaths', pathFlags > 0 ? 'flagged' : 'passed');
+    log('اسکن مسیر فلگ پایان یافت: ' + pathFlags + ' فلگ', pathFlags > 0 ? 'flag' : 'success');
+}
+
+/* ========== MAIN SCAN ========== */
+
+async function startScan() {
+    var rawUrl = document.getElementById('targetUrl').value.trim();
+    if (!rawUrl) { alert('نشانی معتبر وارد کنید'); return; }
+
+    if (rawUrl.indexOf('http://') !== 0 && rawUrl.indexOf('https://') !== 0) {
+        rawUrl = 'https://' + rawUrl;
+    }
+    var parsed;
+    try {
+        parsed = new URL(rawUrl);
+    } catch (e) {
+        alert('نشانی نامعتبر: ' + rawUrl);
+        return;
+    }
+    BASE = parsed.origin;
+
+    scanning = true;
+    scanAborted = false;
+    results = { safe: 0, warning: 0, danger: 0, info: 0, flag: 0 };
+    foundFlags = [];
+    allResults = [];
+
+    document.getElementById('scanBtn').style.display = 'none';
+    document.getElementById('stopBtn').style.display = 'inline-block';
+    document.getElementById('resultsList').innerHTML = '';
+    document.getElementById('flagList').innerHTML = '<span class="no-flags">در حال اسکن برای فلگ...</span>';
+    var statIds = ['statSafe','statWarning','statDanger','statInfo','statFlag'];
+    for (var s = 0; s < statIds.length; s++) document.getElementById(statIds[s]).textContent = '0';
+
+    log('=== شروع اسکن: ' + BASE + ' ===', 'info');
+    updateStatus('اسکن کامل در حال اجرا...');
+
+    var allTests = [
+        checkSecurityHeaders, checkSSL, checkCookies, checkDirectoryListing,
+        checkRobotsTxt, checkTechnologies,
+        checkXSS, checkSQLi, checkOpenRedirect, checkCORS, checkSensitiveFiles, checkCMDi,
+        scanPageForFlags, checkFlagInHeaders, checkFlagPaths
+    ];
+    var total = allTests.length;
+    var done = 0;
+
+    for (var t = 0; t < allTests.length; t++) {
+        if (scanAborted) break;
+        try {
+            await allTests[t]();
+        } catch (e) {
+            log('خطای آزمون: ' + (e.message || e), 'error');
+        }
+        done++;
+        setProgress((done / total) * 100);
+    }
+
+    scanning = false;
+    document.getElementById('scanBtn').style.display = 'inline-block';
+    document.getElementById('stopBtn').style.display = 'none';
+
+    if (!scanAborted) {
+        if (foundFlags.length === 0) {
+            document.getElementById('flagList').innerHTML = '<span class="no-flags">در این اسکن فلگی پیدا نشد</span>';
+        }
+        updateStatus('اسکن کامل شد! ' + foundFlags.length + ' فلگ پیدا شد.');
+        log('=== پایان === امن:' + results.safe + ' هشدار:' + results.warning + ' مشکل:' + results.danger + ' اطلاعات:' + results.info + ' فلگ:' + results.flag, 'info');
+    } else {
+        updateStatus('اسکن لغو شد.');
+        log('اسکن توسط کاربر لغو شد', 'warning');
+    }
+}
+
+function stopScan() {
+    scanAborted = true;
+    scanning = false;
+    document.getElementById('scanBtn').style.display = 'inline-block';
+    document.getElementById('stopBtn').style.display = 'none';
+    updateStatus('اسکن لغو شد.');
+}
+
+function exportReport() {
+    var report = {
+        target: document.getElementById('targetUrl').value,
+        scanTime: new Date().toISOString(),
+        summary: results,
+        flags: foundFlags,
+        findings: allResults
+    };
+    var blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'scan-report-' + Date.now() + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    log('گزارش خروجی گرفته شد', 'success');
+}
+
+document.getElementById('targetUrl').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') startScan();
+});
+
+log('اسکنر آماده است – ' + (isCapacitor() ? 'حالت بومی (بدون CORS)' : 'حالت وب') + '.', 'info');
+log('15 آزمون (6 آبی + 6 قرمز + 3 شکار فلگ).', 'success');
+</script>
+</body>
+</html>

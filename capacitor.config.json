@@ -1,0 +1,11 @@
+{
+  "appId": "ir.owasp.scanner",
+  "appName": "اسکنر امنیتی",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

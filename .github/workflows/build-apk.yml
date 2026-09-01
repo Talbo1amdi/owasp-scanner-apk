@@ -1,0 +1,58 @@
+name: Build Android APK
+
+# Builds a serverless debug APK on GitHub's Ubuntu runners via Capacitor.
+# The built .apk is uploaded as a workflow artifact.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # Capacitor 7 pins Gradle 8.11.1 / AGP 8.7.2 which need JDK 21.
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Pre-warms the Android SDK / build tools so gradle does not have to
+      # download them from dl.google.com (which can time out).
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses || true
+
+      - name: Install Capacitor dependencies
+        run: npm install
+
+      - name: Sync Capacitor (copy + update android)
+        run: npx cap sync android
+
+      - name: Grant gradlew permission
+        run: chmod +x android/gradlew
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: owasp-scanner-farsi-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          retention-days: 30
