@@ -11,4 +11,4 @@ local.properties
 # Android build outputs (handled by android/android/.gitignore too, kept for clarity)
 *.apk
 *.aab
-android/android/app/build/
+android/app/build/

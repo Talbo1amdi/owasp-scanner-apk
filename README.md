@@ -17,7 +17,7 @@ A fully serverless Persian (Farsi, RTL) security scanner for Android. It makes *
 | Path | Purpose |
 |---|---|
 | `www/index.html` | The full Farsi RTL scanner web app |
-| `android/android/` | Capacitor native Android project (generated once, then sync'd) |
+| `android/` | Capacitor native Android project (generated once, then sync'd) |
 | `capacitor.config.json` | Capacitor app config (`appId: ir.owasp.scanner`) |
 | `.github/workflows/build-apk.yml` | GitHub Actions APK build workflow |
 | `package.json` | Capacitor dependency pins |
