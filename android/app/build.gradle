@@ -28,7 +28,8 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            if (project.hasProperty("RELEASE_STORE_FILE")) {
+            def ks = file("../keystore/release.keystore")
+            if (ks.exists()) {
                 signingConfig signingConfigs.release
             }
         }
