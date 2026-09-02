@@ -116,11 +116,6 @@
             <p class="subtitle">آزمون امنیتی کامل با جستجوی فلگ</p>
         </header>
 
-        <div class="danger-box">
-            <h3>فقط با مجوز استفاده کنید</h3>
-            <p>تنها هدف‌هایی را آزمایش کنید که مالک آن‌ها هستید یا مجوز کتبی صریح دارید. اسکن بدون مجوز غیرقانونی است.</p>
-        </div>
-
         <div class="scanner-box">
             <div class="input-group">
                 <input type="text" id="targetUrl" placeholder="نشانی سایت را وارد کنید (مثلاً https://target-site.com)" value="https://example.com">
@@ -300,8 +295,6 @@ function normalizeHeaders(headers) {
 }
 
 async function nativeRequest(targetUrl) {
-    var plat = Capacitor.Plugins;
-    var Http = plat.Http;
     var opts = {
         url: targetUrl,
         method: 'GET',
@@ -309,7 +302,20 @@ async function nativeRequest(targetUrl) {
         connectTimeout: 15000,
         readTimeout: 20000
     };
-    var resp = await Http.request(opts);
+    // The Capacitor JS proxy for a plugin only exists if its JS module was
+    // imported by the page (registerPlugin()). This app is a single self-contained
+    // HTML file with no module imports, so Capacitor.Plugins.Http is undefined.
+    // Instead we call the native plugin directly through Capacitor's bridge,
+    // which works without the JS proxy (same call the auto-generated proxy uses).
+    var Http = (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Http)
+        ? window.Capacitor.Plugins.Http
+        : null;
+    var resp;
+    if (Http && typeof Http.request === 'function') {
+        resp = await Http.request(opts);
+    } else {
+        resp = await window.Capacitor.nativePromise('Http', 'request', opts);
+    }
     var data = resp.data;
     var body = '';
     if (typeof data === 'string') {
@@ -346,7 +352,7 @@ async function webRequest(targetUrl) {
 }
 
 async function smartFetch(targetUrl) {
-    if (isCapacitor() && Capacitor.Plugins.Http) {
+    if (isCapacitor()) {
         try {
             return await nativeRequest(targetUrl);
         } catch (e) {
