@@ -19,7 +19,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       # Capacitor 7 pins Gradle 8.11.1 / AGP 8.7.2 which need JDK 21.

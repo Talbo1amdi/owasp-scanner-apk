@@ -294,101 +294,31 @@ function normalizeHeaders(headers) {
     return out;
 }
 
-async function nativeRequest(targetUrl) {
-    var opts = {
-        url: targetUrl,
-        method: 'GET',
-        connectTimeout: 15000,
-        readTimeout: 20000
-    };
-    var cap = window.Capacitor;
-    if (!cap) throw new Error('Capacitor not available');
-
-    // Try in order: (1) the installed community HTTP plugin's JS proxy,
-    // (2) that same plugin called directly through the native bridge,
-    // (3) Capacitor's built-in native HTTP interceptor.
-    var lastErr = null;
-    var attempt = 0;
-
-    // (1) JS proxy if it was ever registered
-    var HttpProxy = cap.Plugins && cap.Plugins.Http;
-    if (HttpProxy && typeof HttpProxy.request === 'function') {
-        attempt = 1;
-        try {
-            return await buildNativeResult(await HttpProxy.request(opts));
-        } catch (e) { lastErr = e; }
-    }
-
-    // (2) community plugin via bridge (no JS proxy needed)
-    if (typeof cap.nativePromise === 'function') {
-        attempt = 2;
-        try {
-            return await buildNativeResult(await cap.nativePromise('Http', 'request', opts));
-        } catch (e) { lastErr = e; }
-
-        // (3) Capacitor built-in HTTP if the community plugin is not loaded
-        try {
-            attempt = 3;
-            return await buildNativeResult(
-                await cap.nativePromise('CapacitorHttp', 'request', {
-                    url: targetUrl,
-                    method: 'GET'
-                })
-            );
-        } catch (e) { lastErr = e; }
-    }
-
-    var msg = lastErr && lastErr.message ? lastErr.message : String(lastErr || 'unknown');
-    throw new Error('native-http-failed (attempt ' + attempt + '): ' + msg);
-}
-
-function buildNativeResult(resp) {
-    if (!resp) resp = {};
-    var data = resp.data;
-    var body = '';
-    if (typeof data === 'string') {
-        body = data;
-    } else if (data != null) {
-        try { body = JSON.stringify(data); } catch (e) { body = String(data); }
-    }
-    var headers = normalizeHeaders(resp.headers || {});
-    return {
-        cors: true,
-        ok: resp.status >= 200 && resp.status < 300,
-        status: resp.status || 0,
-        body: body,
-        headers: headers,
-        contentType: headers['content-type'] || ''
-    };
-}
-
-async function webRequest(targetUrl) {
+async function smartFetch(targetUrl) {
+    // Capacitor's built-in native HTTP (enabled in capacitor.config.json via
+    // plugins.CapacitorHttp.enabled = true) patches window.fetch on Android/iOS
+    // and routes every request through the native HTTP stack, so cross-origin
+    // requests are no longer blocked by CORS. Using plain fetch works both in
+    // the browser and in the native app.
     try {
         var resp = await fetch(targetUrl, { method: 'GET', cache: 'no-store' });
         var body = await resp.text();
+        var headers = {};
+        if (resp.headers && typeof resp.headers.forEach === 'function') {
+            resp.headers.forEach(function (v, k) { headers[k.toLowerCase()] = v; });
+        }
         return {
             cors: true,
             ok: resp.ok,
             status: resp.status || 0,
             body: body,
-            headers: normalizeHeaders(Object.fromEntries ? Object.fromEntries(resp.headers.entries()) : {}),
-            contentType: resp.headers.get('content-type') || ''
+            headers: headers,
+            contentType: headers['content-type'] || ''
         };
     } catch (e) {
+        log('دریافت پاسخ ناموفق (CORS؟): ' + (e && e.message ? e.message : e), 'error');
         return { cors: false, ok: false, status: 0, body: '', headers: {}, contentType: '', error: 'web-blocked' };
     }
-}
-
-async function smartFetch(targetUrl) {
-    if (isCapacitor()) {
-        try {
-            return await nativeRequest(targetUrl);
-        } catch (e) {
-            log('خطا در درخواست بومی: ' + (e && e.message ? e.message : e), 'error');
-            return { cors: false, ok: false, status: 0, body: '', headers: {}, contentType: '', error: 'native-error' };
-        }
-    }
-    return await webRequest(targetUrl);
 }
 
 function mapLimit(items, limit, fn) {
@@ -992,11 +922,14 @@ document.getElementById('targetUrl').addEventListener('keypress', function(e) {
 log('اسکنر آماده است – ' + (isCapacitor() ? 'حالت بومی (بدون CORS)' : 'حالت وب') + '.', 'info');
 log('15 آزمون (6 آبی + 6 قرمز + 3 شکار فلگ).', 'success');
 
-/* Diagnostic: verify the native HTTP bridge is reachable when on device. */
+/* Diagnostic: report whether Capacitor's native HTTP interceptor is active. */
 if (isCapacitor()) {
     var cap = window.Capacitor;
-    log('بررسی پل بومی: nativePromise=' + (typeof cap.nativePromise === 'function' ? 'ok' : 'MISSING') +
-        ', Plugins.Http=' + (cap.Plugins && cap.Plugins.Http ? 'ok' : 'missing'), 'info');
+    var capHttpEnabled = (cap && cap.CapacitorHttpAndroidInterface)
+        ? cap.CapacitorHttpAndroidInterface.isEnabled()
+        : false;
+    log('پل بومی: nativePromise=' + (cap && typeof cap.nativePromise === 'function' ? 'ok' : 'MISSING') +
+        ', CapacitorHttp=' + (capHttpEnabled === true ? 'فعال (واقعی)' : 'غیرفعال!!'), 'info');
 }
 </script>
 </body>
