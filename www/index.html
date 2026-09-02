@@ -298,24 +298,52 @@ async function nativeRequest(targetUrl) {
     var opts = {
         url: targetUrl,
         method: 'GET',
-        followRedirects: true,
         connectTimeout: 15000,
         readTimeout: 20000
     };
-    // The Capacitor JS proxy for a plugin only exists if its JS module was
-    // imported by the page (registerPlugin()). This app is a single self-contained
-    // HTML file with no module imports, so Capacitor.Plugins.Http is undefined.
-    // Instead we call the native plugin directly through Capacitor's bridge,
-    // which works without the JS proxy (same call the auto-generated proxy uses).
-    var Http = (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Http)
-        ? window.Capacitor.Plugins.Http
-        : null;
-    var resp;
-    if (Http && typeof Http.request === 'function') {
-        resp = await Http.request(opts);
-    } else {
-        resp = await window.Capacitor.nativePromise('Http', 'request', opts);
+    var cap = window.Capacitor;
+    if (!cap) throw new Error('Capacitor not available');
+
+    // Try in order: (1) the installed community HTTP plugin's JS proxy,
+    // (2) that same plugin called directly through the native bridge,
+    // (3) Capacitor's built-in native HTTP interceptor.
+    var lastErr = null;
+    var attempt = 0;
+
+    // (1) JS proxy if it was ever registered
+    var HttpProxy = cap.Plugins && cap.Plugins.Http;
+    if (HttpProxy && typeof HttpProxy.request === 'function') {
+        attempt = 1;
+        try {
+            return await buildNativeResult(await HttpProxy.request(opts));
+        } catch (e) { lastErr = e; }
     }
+
+    // (2) community plugin via bridge (no JS proxy needed)
+    if (typeof cap.nativePromise === 'function') {
+        attempt = 2;
+        try {
+            return await buildNativeResult(await cap.nativePromise('Http', 'request', opts));
+        } catch (e) { lastErr = e; }
+
+        // (3) Capacitor built-in HTTP if the community plugin is not loaded
+        try {
+            attempt = 3;
+            return await buildNativeResult(
+                await cap.nativePromise('CapacitorHttp', 'request', {
+                    url: targetUrl,
+                    method: 'GET'
+                })
+            );
+        } catch (e) { lastErr = e; }
+    }
+
+    var msg = lastErr && lastErr.message ? lastErr.message : String(lastErr || 'unknown');
+    throw new Error('native-http-failed (attempt ' + attempt + '): ' + msg);
+}
+
+function buildNativeResult(resp) {
+    if (!resp) resp = {};
     var data = resp.data;
     var body = '';
     if (typeof data === 'string') {
@@ -323,7 +351,7 @@ async function nativeRequest(targetUrl) {
     } else if (data != null) {
         try { body = JSON.stringify(data); } catch (e) { body = String(data); }
     }
-    var headers = normalizeHeaders(resp.headers);
+    var headers = normalizeHeaders(resp.headers || {});
     return {
         cors: true,
         ok: resp.status >= 200 && resp.status < 300,
@@ -356,6 +384,7 @@ async function smartFetch(targetUrl) {
         try {
             return await nativeRequest(targetUrl);
         } catch (e) {
+            log('خطا در درخواست بومی: ' + (e && e.message ? e.message : e), 'error');
             return { cors: false, ok: false, status: 0, body: '', headers: {}, contentType: '', error: 'native-error' };
         }
     }
@@ -962,6 +991,13 @@ document.getElementById('targetUrl').addEventListener('keypress', function(e) {
 
 log('اسکنر آماده است – ' + (isCapacitor() ? 'حالت بومی (بدون CORS)' : 'حالت وب') + '.', 'info');
 log('15 آزمون (6 آبی + 6 قرمز + 3 شکار فلگ).', 'success');
+
+/* Diagnostic: verify the native HTTP bridge is reachable when on device. */
+if (isCapacitor()) {
+    var cap = window.Capacitor;
+    log('بررسی پل بومی: nativePromise=' + (typeof cap.nativePromise === 'function' ? 'ok' : 'MISSING') +
+        ', Plugins.Http=' + (cap.Plugins && cap.Plugins.Http ? 'ok' : 'missing'), 'info');
+}
 </script>
 </body>
 </html>
