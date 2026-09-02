@@ -107,9 +107,45 @@
         .log-entry.warning { color: #f39c12; }
         .log-entry.flag { color: #f1c40f; font-weight: bold; }
         .app-foot { text-align: center; color: #666; font-size: 0.85rem; margin: 20px 0; }
+
+        /* ====== License activation overlay ====== */
+        .overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(10,12,25,0.97); z-index: 9999;
+            display: flex; align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .license-card {
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(90,150,255,0.35);
+            border-radius: 20px; padding: 35px 30px; max-width: 420px; width: 100%;
+            text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+        }
+        .license-card img { width: 90px; height: 90px; margin-bottom: 15px; border-radius: 18px; }
+        .license-card h2 { color: #fff; margin-bottom: 8px; font-size: 1.4rem; }
+        .license-card p { color: #a0a0a0; font-size: 0.9rem; line-height: 1.7; margin-bottom: 20px; }
+        .license-card input {
+            width: 100%; padding: 14px 16px; font-size: 1rem; text-align: center; letter-spacing: 2px;
+            border: 2px solid #3a7bd5; border-radius: 10px; background: rgba(0,0,0,0.4); color: #fff;
+            outline: none; font-family: 'Consolas', monospace; direction: ltr; margin-bottom: 15px;
+        }
+        .license-card input:focus { border-color: #00d2ff; }
+        .license-msg { min-height: 20px; margin-bottom: 10px; font-size: 0.85rem; color: #ff6b6b; }
+        .license-msg.ok { color: #2ecc71; }
     </style>
 </head>
 <body>
+    <!-- ====== License activation overlay ====== -->
+    <div class="overlay" id="licenseOverlay">
+        <div class="license-card">
+            <img src="logo.png" alt="اسکنر امنیتی">
+            <h2>اسکنر امنیتی سایت</h2>
+            <p>برای استفاده از این نسخهٔ حرفه‌ای باید کلید مجوز (License Key) معتبر وارد کنید.</p>
+            <input type="text" id="licenseKey" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off">
+            <div class="license-msg" id="licenseMsg"></div>
+            <button class="btn btn-primary" style="width:100%" onclick="activateLicense()">فعال‌سازی</button>
+        </div>
+    </div>
+
     <div class="container">
         <header>
             <h1>اسکنر امنیتی سایت</h1>
@@ -188,6 +224,36 @@ var results = { safe: 0, warning: 0, danger: 0, info: 0, flag: 0 };
 var foundFlags = [];
 var allResults = [];
 var BASE = '';
+
+/* ====== License activation ====== */
+var PRODUCT_KEY = 'OWASP-2026-SCANNER-PRO';
+function normalizeKey(s) {
+    return String(s == null ? '' : s).replace(/\s+/g, '').toUpperCase();
+}
+function isLicenseActive() {
+    try { return localStorage.getItem('owasp_license') === PRODUCT_KEY; } catch (e) { return false; }
+}
+function activateLicense() {
+    var input = document.getElementById('licenseKey');
+    var msg = document.getElementById('licenseMsg');
+    if (normalizeKey(input.value) === PRODUCT_KEY) {
+        try { localStorage.setItem('owasp_license', PRODUCT_KEY); } catch (e) {}
+        msg.className = 'license-msg ok';
+        msg.textContent = 'فعال‌سازی انجام شد.';
+        document.getElementById('licenseOverlay').style.display = 'none';
+        log('نسخهٔ حرفه‌ای فعال شد.', 'success');
+    } else {
+        msg.className = 'license-msg';
+        msg.textContent = 'کلید مجوز نامعتبر است.';
+        input.select();
+    }
+}
+document.getElementById('licenseKey').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') activateLicense();
+});
+if (isLicenseActive()) {
+    document.getElementById('licenseOverlay').style.display = 'none';
+}
 
 function log(message, type) {
     type = type || 'info';
@@ -871,6 +937,11 @@ async function checkFlagPaths() {
 /* ========== MAIN SCAN ========== */
 
 async function startScan() {
+    if (!isLicenseActive()) {
+        document.getElementById('licenseOverlay').style.display = 'flex';
+        alert('ابتدا کلید مجوز را وارد کنید.');
+        return;
+    }
     var rawUrl = document.getElementById('targetUrl').value.trim();
     if (!rawUrl) { alert('نشانی معتبر وارد کنید'); return; }
 
@@ -946,22 +1017,290 @@ function stopScan() {
     updateStatus('اسکن لغو شد.');
 }
 
-function exportReport() {
-    var report = {
-        target: document.getElementById('targetUrl').value,
-        scanTime: new Date().toISOString(),
-        summary: results,
-        flags: foundFlags,
-        findings: allResults
-    };
-    var blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+function downloadBlob(blob, filename) {
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'scan-report-' + Date.now() + '.json';
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    log('گزارش خروجی گرفته شد', 'success');
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+}
+
+function exportReport() {
+    if (!allResults.length) {
+        alert('ابتدا یک اسکن اجرا کنید تا گزارش تهیه شود.');
+        return;
+    }
+    try {
+        buildPdfReport();
+    } catch (e) {
+        alert('خطا در ساخت PDF: ' + e.message);
+        log('خطای PDF: ' + e.message, 'error');
+    }
+}
+
+function buildPdfReport() {
+    var report = {
+        target: document.getElementById('targetUrl').value,
+        scanTime: new Date().toISOString(),
+        summary: {
+            'امن': results.safe,
+            'هشدار': results.warning,
+            'مشکل': results.danger,
+            'اطلاعات': results.info,
+            'فلگ': results.flag
+        },
+        flags: foundFlags,
+        findings: allResults
+    };
+
+    // Render the report to an offscreen canvas (A4@~120dpi => 1240x1754), paginating.
+    var pageW = 1240, pageH = 1754, pad = 70;
+    var contentW = pageW - pad * 2;
+    var y = 0, pageIndex = 0;
+    var pages = [];
+
+    var canv = document.createElement('canvas');
+    canv.width = pageW; canv.height = pageH;
+    var ctx = canv.getContext('2d');
+    var font = '"Vazirmatn","Tahoma","Segoe UI",sans-serif';
+
+    function newPage() {
+        if (pageIndex > 0) {
+            pages.push(canv.toDataURL('image/jpeg', 0.85));
+        }
+        canv.width = pageW; canv.height = pageH;
+        ctx = canv.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, pageW, pageH);
+        ctx.textBaseline = 'top';
+        y = pad;
+        pageIndex++;
+        drawHeader();
+    }
+
+    function wrapText(text, maxW, fsize) {
+        ctx.font = '400 ' + fsize + 'px ' + font;
+        var words = String(text).split(/\s+/);
+        var lines = [], cur = '';
+        for (var i = 0; i < words.length; i++) {
+            var w = words[i];
+            var test = cur ? cur + ' ' + w : w;
+            if (ctx.measureText(test).width > maxW && cur) {
+                lines.push(cur);
+                cur = w;
+            } else {
+                cur = test;
+            }
+        }
+        if (cur) lines.push(cur);
+        return lines;
+    }
+
+    function ensureSpace(neededPx) {
+        if (y + neededPx > pageH - pad - 30) newPage();
+    }
+
+    function drawHeader() {
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#0b3d6e';
+        ctx.font = '700 46px ' + font;
+        ctx.fillText('گزارش اسکن امنیتی سایت', pageW - pad, y);
+        y += 60;
+        ctx.fillStyle = '#555';
+        ctx.font = '400 26px ' + font;
+        ctx.fillText('هدف: ' + report.target, pageW - pad, y);
+        y += 36;
+        ctx.fillText('زمان: ' + report.scanTime.replace('T', ' ').slice(0, 19), pageW - pad, y);
+        y += 44;
+        ctx.fillStyle = '#0b3d6e';
+        ctx.fillRect(pad, y, contentW, 3);
+        y += 30;
+    }
+
+    newPage(); // page 1 header + summary
+
+    // Summary box
+    ctx.fillStyle = '#eef4fb';
+    ctx.fillRect(pad, y, contentW, 90);
+    y += 18;
+    var keys = Object.keys(report.summary);
+    for (var si = 0; si < keys.length; si++) {
+        var color = '#27ae60';
+        if (keys[si] === 'مشکل') color = '#e74c3c';
+        else if (keys[si] === 'هشدار') color = '#f39c12';
+        else if (keys[si] === 'اطلاعات') color = '#3498db';
+        else if (keys[si] === 'فلگ') color = '#f1c40f';
+        ctx.fillStyle = color;
+        ctx.font = '700 30px ' + font;
+        ctx.textAlign = 'center';
+        ctx.fillText(report.summary[keys[si]], pad + (si + 0.5) * (contentW / keys.length), y);
+        ctx.fillStyle = '#333';
+        ctx.font = '400 24px ' + font;
+        ctx.fillText(keys[si], pad + (si + 0.5) * (contentW / keys.length), y + 34);
+    }
+    y += 110;
+
+    // Flags
+    if (report.flags && report.flags.length) {
+        ensureSpace(80);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#f1c40f';
+        ctx.font = '700 32px ' + font;
+        ctx.fillText('فلگ‌های پیدا شده', pageW - pad, y);
+        y += 42;
+        ctx.fillStyle = '#555';
+        ctx.font = '400 24px ' + font;
+        for (var fi = 0; fi < report.flags.length; fi++) {
+            ensureSpace(30);
+            ctx.fillText('• ' + report.flags[fi], pageW - pad, y);
+            y += 30;
+        }
+        y += 16;
+    }
+
+    // Findings
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#0b3d6e';
+    ctx.font = '700 34px ' + font;
+    ensureSpace(50);
+    ctx.fillText('یافته‌های اسکن (' + allResults.length + ')', pageW - pad, y);
+    y += 50;
+
+    for (var ri = 0; ri < allResults.length; ri++) {
+        var f = allResults[ri];
+        var tcolor = '#27ae60';
+        if (f.type === 'danger') tcolor = '#e74c3c';
+        else if (f.type === 'warning') tcolor = '#f39c12';
+        else if (f.type === 'info') tcolor = '#3498db';
+        else if (f.type === 'flag') tcolor = '#f1c40f';
+
+        var titleLines = wrapText(f.title, contentW - 60, 28);
+        var detailLines = wrapText(f.details, contentW - 60, 24);
+        var blockH = 30 + titleLines.length * 38 + detailLines.length * 32 + 30;
+        ensureSpace(blockH);
+
+        ctx.fillStyle = 'rgba(20,30,50,0.05)';
+        ctx.fillRect(pad, y, contentW, blockH);
+        ctx.fillStyle = tcolor;
+        ctx.fillRect(pad, y, 8, blockH);
+        ctx.textAlign = 'right';
+        y += 26;
+        ctx.fillStyle = '#111';
+        ctx.font = '700 28px ' + font;
+        for (var ti = 0; ti < titleLines.length; ti++) {
+            ctx.fillText(titleLines[ti], pageW - pad - 20, y);
+            y += 38;
+        }
+        ctx.fillStyle = '#444';
+        ctx.font = '400 24px ' + font;
+        for (var di = 0; di < detailLines.length; di++) {
+            ctx.fillText(detailLines[di], pageW - pad - 20, y);
+            y += 32;
+        }
+        y += 24;
+    }
+
+    // finalize last page
+    pages.push(canv.toDataURL('image/jpeg', 0.85));
+
+    // Now build a multi-page PDF from the page images.
+    var pdf = buildPdfFromImages(pages);
+    downloadBlob(pdf, 'scan-report-' + Date.now() + '.pdf');
+    log('گزارش PDF ذخیره شد (' + pages.length + ' صفحه)', 'success');
+}
+
+/* Assemble a valid PDF with one (already-JPEG) image per page. */
+function buildPdfFromImages(jpegDataUris) {
+    var pageW = 595, pageH = 842, imW = 550, imH = 775;
+    var x = (pageW - imW) / 2, y = (pageH - imH) / 2;
+    var objs = [];
+    var id = 1;
+    function alloc() { return objs.push(null); }
+
+    // We'll build objects and fix up references with placeholders.
+    var pagesRef = alloc();            // 1: Pages
+    var pageIds = [];                  // per-page page object ids
+    var imageIds = [];                 // per-page image XObject ids
+    var contentIds = [];               // per-page content stream ids
+
+    var n = jpegDataUris.length;
+
+    var catalogId = alloc();           // after everything
+
+    for (var i = 0; i < n; i++) {
+        imageIds[i] = alloc();
+        contentIds[i] = alloc();
+        pageIds[i] = alloc();
+    }
+
+    function b64ToBinary(base64) {
+        var bin = atob(base64);
+        return bin;
+    }
+
+    var out = '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n';
+    var offsets = {};
+
+    function emit(idNo, bodyForObj) {
+        var body = b64ToBinary(bodyForObj);
+        var len = body.length;
+        var serialized = idNo + ' 0 obj\n<< /Type /XObject /Subtype /Image /Width ' + imW +
+            ' /Height ' + imH + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode' +
+            ' /Length ' + len + ' >>\nstream\n' + body + '\nendstream\nendobj\n';
+        offsets[idNo] = out.length;
+        out += serialized;
+    }
+
+    // images
+    for (var i2 = 0; i2 < n; i2++) {
+        var b64 = jpegDataUris[i2].split(',')[1];
+        emit(imageIds[i2], b64);
+    }
+
+    // content streams
+    for (var i3 = 0; i3 < n; i3++) {
+        var contentBody = 'q ' + imW + ' 0 0 ' + imH + ' ' + x + ' ' + y + ' cm /Im' + (i3 + 1) + ' Do Q';
+        var cId = contentIds[i3];
+        offsets[cId] = out.length;
+        out += cId + ' 0 obj\n<< /Length ' + contentBody.length + ' >>\nstream\n' + contentBody + '\nendstream\nendobj\n';
+    }
+
+    // pages
+    var kidsRefs = [];
+    for (var i4 = 0; i4 < n; i4++) kidsRefs.push(pageIds[i4] + ' 0 R');
+    offsets[pagesRef] = out.length;
+    out += pagesRef + ' 0 obj\n<< /Type /Pages /Kids [' + kidsRefs.join(' ') + '] /Count ' + n + ' >>\nendobj\n';
+
+    for (var i5 = 0; i5 < n; i5++) {
+        var pageBody = '<< /Type /Page /Parent ' + pagesRef + ' 0 R /MediaBox [0 0 ' + pageW + ' ' + pageH +
+            '] /Resources << /XObject << /Im' + (i5 + 1) + ' ' + imageIds[i5] + ' 0 R >> >> /Contents ' +
+            contentIds[i5] + ' 0 R >>';
+        var pId = pageIds[i5];
+        offsets[pId] = out.length;
+        out += pId + ' 0 obj\n' + pageBody + '\nendobj\n';
+    }
+
+    // catalog
+    offsets[catalogId] = out.length;
+    out += catalogId + ' 0 obj\n<< /Type /Catalog /Pages ' + pagesRef + ' 0 R >>\nendobj\n';
+
+    var xrefPos = out.length;
+    var count = catalogId + 1;
+    var xref = 'xref\n0 ' + count + '\n';
+    xref += '0000000000 65535 f \n';
+    for (var ii = 1; ii < count; ii++) {
+        var off = offsets[ii] != null ? offsets[ii] : 0;
+        xref += ('0000000000' + off).slice(-10) + ' 00000 n \n';
+    }
+    out += xref;
+    out += 'trailer\n<< /Size ' + count + ' /Root ' + catalogId + ' 0 R >>\nstartxref\n' + xrefPos + '\n%%EOF\n';
+
+    // Convert the raw string (latin-1) into a binary blob.
+    var byteArr = new Uint8Array(out.length);
+    for (var bi = 0; bi < out.length; bi++) byteArr[bi] = out.charCodeAt(bi) & 0xFF;
+    return new Blob([byteArr], { type: 'application/pdf' });
 }
 
 document.getElementById('targetUrl').addEventListener('keypress', function(e) {

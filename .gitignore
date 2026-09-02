@@ -12,3 +12,8 @@ local.properties
 *.apk
 *.aab
 android/app/build/
+
+# Private release signing keystore (DO NOT commit)
+android/keystore/
+*.keystore
+*.jks

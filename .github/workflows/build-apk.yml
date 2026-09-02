@@ -46,13 +46,27 @@ jobs:
       - name: Grant gradlew permission
         run: chmod +x android/gradlew
 
-      - name: Build debug APK
+      - name: Restore release signing keystore (from secret)
+        if: env.RELEASE_KEYSTORE_B64 != ''
+        env:
+          RELEASE_KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          mkdir -p android/keystore
+          echo "$RELEASE_KEYSTORE_B64" | base64 -d > android/keystore/release.keystore
+          echo "RELEASE_STORE_FILE=android/keystore/release.keystore" >> $GITHUB_ENV
+          echo "RELEASE_STORE_PASSWORD=$RELEASE_STORE_PASSWORD" >> $GITHUB_ENV
+          echo "RELEASE_KEY_PASSWORD=$RELEASE_KEY_PASSWORD" >> $GITHUB_ENV
+
+      - name: Build release APK (signed)
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: owasp-scanner-farsi-apk
-          path: android/app/build/outputs/apk/debug/*.apk
+          path: |
+            android/app/build/outputs/apk/release/*.apk
           retention-days: 30
