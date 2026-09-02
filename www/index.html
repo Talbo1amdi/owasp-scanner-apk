@@ -140,7 +140,7 @@
 
             <div class="section-title section-red">تیم قرمز – آزمون‌های حمله</div>
             <div class="tests-grid">
-                <div class="test-card red-card" id="test-xss"><h3>تشخیص XSS</h3><p>بررسی بازتاب ورودی (پیش‌شرط XSS)</p></div>
+                <div class="test-card red-card" id="test-xss"><h3>آزمایش XSS</h3><p>ارسال پیلود واقعی و بررسی بازتاب خام (قابل اجرا)</p></div>
                 <div class="test-card red-card" id="test-sqli"><h3>تزریق SQL</h3><p>ارسال محموله SQL برای یافتن نقاط تزریق</p></div>
                 <div class="test-card red-card" id="test-openredirect"><h3>تغییر مسیر باز</h3><p>آزمایش آسیب‌پذیری تغییر مسیر باز</p></div>
                 <div class="test-card red-card" id="test-cors"><h3>پیکربندی نادرست CORS</h3><p>آزمایش سیاست‌های CORS سهل‌گیرانه</p></div>
@@ -538,30 +538,79 @@ async function checkTechnologies() {
 
 async function checkXSS() {
     setTestState('xss', 'testing');
-    log('بررسی بازتاب ورودی (پیش‌شرط XSS)...', 'info');
-    updateStatus('در حال بررسی بازتاب ورودی...');
-    var marker = 'owaspzq7marker';
+    log('ارسال پیلودهای واقعی XSS و بررسی بازتاب خام (رمزنگاری‌نشده)...', 'info');
+    updateStatus('در حال آزمایش XSS...');
     var params = ['q', 'search', 'query', 'input', 'name', 'page', 'url', 'test'];
-    var reflected = [];
+    var payloads = [
+        { name: 'script-tag',   vec: '<script>alert(1)<\/script>' },
+        { name: 'svg-onload',   vec: '<svg/onload=alert(1)>' },
+        { name: 'img-onerror',  vec: '<img src=x onerror=alert(1)>' },
+        { name: 'attr-escape',  vec: '"><img src=x onerror=alert(1)>' },
+        { name: 'script-close', vec: '<\/script><script>alert(1)<\/script>' },
+        { name: 'input-focus',  vec: '<input autofocus onfocus=alert(1)>' }
+    ];
+    var rawPoints = [];
+    var encoded = 0;
+    var pctEncoded = 0;
+    var blocked = 0;
+    var reflectedCount = 0;
 
-    await mapLimit(params, 4, async function(param) {
+    function htmlEnc(s) {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    await mapLimit(params, 3, async function(param) {
         if (scanAborted) return;
-        var testUrl = makeUrl('/?' + param + '=' + marker);
-        var resp = await smartFetch(testUrl);
-        if (resp.cors && resp.body && resp.body.indexOf(marker) !== -1) {
-            reflected.push(param);
-            log('ورودی در "' + param + '" بازتاب شد – نقطه بالقوه XSS', 'warning');
+        for (var xi = 0; xi < payloads.length; xi++) {
+            if (scanAborted) return;
+            var vec = payloads[xi].vec;
+            var t1 = 'ZQ7_' + Math.random().toString(36).slice(2, 6);
+            var t2 = 'ZQ7_' + Math.random().toString(36).slice(2, 6);
+            var full = t1 + vec + t2;
+            var testUrl = makeUrl('/?' + param + '=' + encodeURIComponent(full));
+            var resp = await smartFetch(testUrl);
+            if (!resp.cors) { blocked++; continue; }
+            if (resp.status === 403 || resp.status === 406 || resp.status === 429) { blocked++; continue; }
+            var body = resp.body;
+            if (!body) continue;
+            var i1 = body.indexOf(t1);
+            var i2 = body.indexOf(t2);
+            if (i1 === -1 || i2 === -1 || i2 <= i1) continue;
+            reflectedCount++;
+            var seg = body.substring(i1 + t1.length, i2);
+            if (seg.indexOf(vec) !== -1) {
+                rawPoints.push({ param: param, name: payloads[xi].name, vec: vec, sample: seg.substr(0, 100) });
+                log('XSS: پیلود [' + payloads[xi].name + '] در پارامتر [' + param + '] خام بازتاب شد → قابل بهره‌برداری', 'error');
+                break;
+            } else if (seg.indexOf(htmlEnc(vec)) !== -1) {
+                encoded++;
+            } else if (seg.indexOf('%3C') !== -1 || seg.indexOf('%3c') !== -1) {
+                pctEncoded++;
+            }
+            await new Promise(function(r) { setTimeout(r, 150); });
         }
     });
 
-    if (reflected.length) {
+    if (rawPoints.length) {
+        setTestState('xss', 'failed');
+        var d = rawPoints.map(function(r) { return '[' + r.param + '] ' + r.name; }).join(' | ');
+        addResult('danger', 'XSS تأیید شد (بازتاب خام پیلود)', 'پارامترهایی که پیلود را بدون پاکسازی بازتاب دادند: ' + d + '.\nاسکریپت در مرورگر قربانی اجرا می‌شود؛ این یک نقطه XSS واقعی است.');
+        log('XSS تأیید شد — ' + rawPoints.length + ' نقطه بازتاب خام.', 'error');
+    } else if (encoded > 0) {
         setTestState('xss', 'warning');
-        addResult('warning', 'بازتاب ورودی یافت شد', 'این پارامترها ورودی را بدون پاکسازی بازتاب می‌دهند: ' + reflected.join(', ') + '. این یک بردار XSS محتمل است.\nبرای تأیید، با اسکنر XSS (مثلاً OWASP ZAP) آزمایش کنید.');
+        addResult('warning', 'بازتاب با پاکسازی (HTML-enc)',
+            encoded + ' بازتاب یافت شد اما خروجی HTML-encode شده است → ریسک اجرا پایین.\nممکن است به بردار پیشرفته (بای‌پس دبلیو‌ای‌اف/متن) نیاز باشد.');
+    } else if (pctEncoded > 0) {
+        setTestState('xss', 'warning');
+        addResult('warning', 'بازتاب URL-encoded',
+            pctEncoded + ' بازتاب فقط به صورت درصدی (URL-encoded) بود → در بافت HTML اجرا نمی‌شود مگر در بافت رمزگشاها.');
     } else {
         setTestState('xss', 'passed');
-        addResult('safe', 'بازتاب ورودی یافت نشد', 'هیچ پارامتر URL ورودی‌ای را بازتاب نداد. بدون نقطه بازتاب در ' + params.length + ' پارامتر.');
+        var note = blocked > 0 ? ' (' + blocked + ' پاسخ توسط WAF/فیلتر مسدود شد)' : '';
+        addResult('safe', 'بازتاب خام XSS یافت نشد', 'هیچیک از ' + payloads.length + ' پیلود در ' + params.length + ' پارامتر به صورت خام بازتاب نشد' + note + '.');
     }
-    log('بررسی بازتاب پایان یافت', 'success');
+    log('آزمایش XSS پایان یافت ' + '(بازتاب:' + reflectedCount + ', خام:' + rawPoints.length + ')', 'success');
 }
 
 async function checkSQLi() {
