@@ -107,44 +107,9 @@
         .log-entry.warning { color: #f39c12; }
         .log-entry.flag { color: #f1c40f; font-weight: bold; }
         .app-foot { text-align: center; color: #666; font-size: 0.85rem; margin: 20px 0; }
-
-        /* ====== License activation overlay ====== */
-        .overlay {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(10,12,25,0.97); z-index: 9999;
-            display: flex; align-items: center; justify-content: center;
-            padding: 20px;
-        }
-        .license-card {
-            background: rgba(255,255,255,0.06); border: 1px solid rgba(90,150,255,0.35);
-            border-radius: 20px; padding: 35px 30px; max-width: 420px; width: 100%;
-            text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-        }
-        .license-card img { width: 90px; height: 90px; margin-bottom: 15px; border-radius: 18px; }
-        .license-card h2 { color: #fff; margin-bottom: 8px; font-size: 1.4rem; }
-        .license-card p { color: #a0a0a0; font-size: 0.9rem; line-height: 1.7; margin-bottom: 20px; }
-        .license-card input {
-            width: 100%; padding: 14px 16px; font-size: 1rem; text-align: center; letter-spacing: 2px;
-            border: 2px solid #3a7bd5; border-radius: 10px; background: rgba(0,0,0,0.4); color: #fff;
-            outline: none; font-family: 'Consolas', monospace; direction: ltr; margin-bottom: 15px;
-        }
-        .license-card input:focus { border-color: #00d2ff; }
-        .license-msg { min-height: 20px; margin-bottom: 10px; font-size: 0.85rem; color: #ff6b6b; }
-        .license-msg.ok { color: #2ecc71; }
     </style>
 </head>
 <body>
-    <!-- ====== License activation overlay ====== -->
-    <div class="overlay" id="licenseOverlay">
-        <div class="license-card">
-            <img src="logo.png" alt="اسکنر امنیتی">
-            <h2>اسکنر امنیتی سایت</h2>
-            <p>برای استفاده از این نسخهٔ حرفه‌ای باید کلید مجوز (License Key) معتبر وارد کنید.</p>
-            <input type="text" id="licenseKey" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off">
-            <div class="license-msg" id="licenseMsg"></div>
-            <button class="btn btn-primary" style="width:100%" onclick="activateLicense()">فعال‌سازی</button>
-        </div>
-    </div>
 
     <div class="container">
         <header>
@@ -224,36 +189,6 @@ var results = { safe: 0, warning: 0, danger: 0, info: 0, flag: 0 };
 var foundFlags = [];
 var allResults = [];
 var BASE = '';
-
-/* ====== License activation ====== */
-var PRODUCT_KEY = 'OWASP-2026-SCANNER-PRO';
-function normalizeKey(s) {
-    return String(s == null ? '' : s).replace(/\s+/g, '').toUpperCase();
-}
-function isLicenseActive() {
-    try { return localStorage.getItem('owasp_license') === PRODUCT_KEY; } catch (e) { return false; }
-}
-function activateLicense() {
-    var input = document.getElementById('licenseKey');
-    var msg = document.getElementById('licenseMsg');
-    if (normalizeKey(input.value) === PRODUCT_KEY) {
-        try { localStorage.setItem('owasp_license', PRODUCT_KEY); } catch (e) {}
-        msg.className = 'license-msg ok';
-        msg.textContent = 'فعال‌سازی انجام شد.';
-        document.getElementById('licenseOverlay').style.display = 'none';
-        log('نسخهٔ حرفه‌ای فعال شد.', 'success');
-    } else {
-        msg.className = 'license-msg';
-        msg.textContent = 'کلید مجوز نامعتبر است.';
-        input.select();
-    }
-}
-document.getElementById('licenseKey').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') activateLicense();
-});
-if (isLicenseActive()) {
-    document.getElementById('licenseOverlay').style.display = 'none';
-}
 
 function log(message, type) {
     type = type || 'info';
@@ -937,11 +872,6 @@ async function checkFlagPaths() {
 /* ========== MAIN SCAN ========== */
 
 async function startScan() {
-    if (!isLicenseActive()) {
-        document.getElementById('licenseOverlay').style.display = 'flex';
-        alert('ابتدا کلید مجوز را وارد کنید.');
-        return;
-    }
     var rawUrl = document.getElementById('targetUrl').value.trim();
     if (!rawUrl) { alert('نشانی معتبر وارد کنید'); return; }
 
