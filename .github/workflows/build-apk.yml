@@ -71,3 +71,15 @@ jobs:
             android/app/build/outputs/apk/release/*.apk
             android/app/build/outputs/bundle/release/*.aab
           retention-days: 30
+
+      - name: Publish to GitHub Release (app-v1.0.0)
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: app-v1.0.0
+          name: OWASP Scanner v1.0.0
+          files: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/bundle/release/*.aab
+          generate_release_notes: false
+          fail_on_unmatched_files: false
