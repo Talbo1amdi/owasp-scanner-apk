@@ -107,9 +107,47 @@
         .log-entry.warning { color: #f39c12; }
         .log-entry.flag { color: #f1c40f; font-weight: bold; }
         .app-foot { text-align: center; color: #666; font-size: 0.85rem; margin: 20px 0; }
+
+        /* ====== Report saved modal ====== */
+        .modal-mask {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(8,10,22,0.85); z-index: 9990;
+            align-items: center; justify-content: center; padding: 20px;
+        }
+        .modal-mask.show { display: flex; }
+        .modal-card {
+            background: #141a2e; border: 1px solid rgba(90,150,255,0.35);
+            border-radius: 18px; padding: 26px 22px; max-width: 480px; width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6); text-align: right; direction: rtl;
+        }
+        .modal-card h2 { color: #2ecc71; font-size: 1.2rem; margin-bottom: 12px; text-align: center; }
+        .modal-card p { color: #a0a0a0; font-size: 0.92rem; line-height: 1.8; margin-bottom: 14px; }
+        .modal-card .path-row {
+            background: rgba(0,0,0,0.45); border: 1px solid #2a3350; border-radius: 8px;
+            padding: 10px 12px; direction: ltr; text-align: left; font-family: 'Consolas', monospace;
+            font-size: 0.78rem; color: #9fd4ff; word-break: break-all; margin-bottom: 6px;
+        }
+        .modal-card .path-label { color: #667; font-size: 0.8rem; margin-bottom: 4px; direction: rtl; text-align: right; }
+        .modal-card .btn-row { display: flex; gap: 8px; margin-top: 16px; }
+        .modal-card .btn-row .btn { flex: 1; }
     </style>
 </head>
 <body>
+
+    <!-- ====== Report saved modal ====== -->
+    <div class="modal-mask" id="reportModal">
+        <div class="modal-card">
+            <h2>گزارش PDF ذخیره شد</h2>
+            <p>فایل گزارش اسکن بر روی دستگاه ذخیره شد. می‌توانید آن را در مسیر زیر بیابید یا با دکمه‌ی اشتراک‌گذاری ارسال کنید:</p>
+            <div class="path-label">محل ذخیره‌سازی (می‌توانید کپی کنید):</div>
+            <div class="path-row" id="reportPath"></div>
+            <div style="text-align:center; color:#888; font-size:0.8rem; margin-top:6px;" id="reportHint"></div>
+            <div class="btn-row">
+                <button class="btn btn-primary" onclick="shareReport()">اشتراک‌گذاری / باز کردن</button>
+                <button class="btn" onclick="closeReportModal()" style="background:#3a3f55;color:#fff">بستن</button>
+            </div>
+        </div>
+    </div>
 
     <div class="container">
         <header>
@@ -947,6 +985,9 @@ function stopScan() {
     updateStatus('اسکن لغو شد.');
 }
 
+var _lastReportPath = null;
+var _lastReportFileUrl = null;
+
 function downloadBlob(blob, filename) {
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -955,6 +996,77 @@ function downloadBlob(blob, filename) {
     a.click();
     document.body.removeChild(a);
     setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+}
+
+function blobToBase64(blob) {
+    return new Promise(function (resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function () { resolve(reader.result); };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
+
+/* Save the PDF to a real, visible folder on the device (Documents/OWASP-Scanner).
+   Falls back to a simple download on the web. Returns the full path. */
+async function savePdfToDevice(blob, filename, isNative) {
+    if (!isNative) {
+        downloadBlob(blob, filename);
+        return 'دانلود خودکار (مرورگر وب) — ' + filename;
+    }
+    var cap = window.Capacitor;
+    var dataUrl = await blobToBase64(blob);          // data:application/pdf;base64,....
+    var b64 = dataUrl.split(',')[1];
+    var androidPath = '/storage/emulated/0/Documents/OWASP-Scanner/' + filename;
+    // Public Documents folder -> Android: /storage/emulated/0/Documents/OWASP-Scanner/...
+    var writeRes = await cap.nativePromise('Filesystem', 'writeFile', {
+        path: 'OWASP-Scanner/' + filename,
+        directory: 'DOCUMENTS',
+        data: b64,
+        recursive: true
+    });
+    // Prefer the real file:// uri returned by the plugin; fall back to the
+    // well-known Android Documents path so display + share always work.
+    var uri = writeRes && writeRes.uri ? writeRes.uri : '';
+    var fileUrl = '';
+    if (typeof uri === 'string' && uri.indexOf('file://') === 0) {
+        fileUrl = uri;
+    } else if (typeof uri === 'string' && uri.indexOf('/') === 0) {
+        fileUrl = 'file://' + uri;
+    } else {
+        fileUrl = 'file://' + androidPath;
+    }
+    _lastReportFileUrl = fileUrl;
+    return fileUrl.replace(/^file:\/\//, '');
+}
+
+function showReportModal(path, isNative) {
+    _lastReportPath = path;
+    document.getElementById('reportPath').textContent = path;
+    document.getElementById('reportHint').textContent = isNative
+        ? 'برای دسترسی سریع‌تر دکمه‌ی «اشتراک‌گذاری / باز کردن» را بزنید.'
+        : 'در حالت وب، فایل در پوشه‌ی دانلود مرورگر ذخیره می‌شود.';
+    document.getElementById('reportModal').classList.add('show');
+}
+
+function closeReportModal() {
+    document.getElementById('reportModal').classList.remove('show');
+}
+
+async function shareReport() {
+    try {
+        var cap = window.Capacitor;
+        var fileUrl = _lastReportFileUrl;
+        if (!fileUrl) { closeReportModal(); return; }
+        var ok = await cap.nativePromise('Share', 'share', {
+            title: 'گزارش اسکن امنیتی',
+            dialogTitle: 'اشتراک‌گذاری گزارش',
+            files: [fileUrl]
+        });
+        closeReportModal();
+    } catch (e) {
+        log('خطا در اشتراک‌گذاری: ' + (e && e.message), 'error');
+    }
 }
 
 function exportReport() {
@@ -1137,8 +1249,15 @@ function buildPdfReport() {
 
     // Now build a multi-page PDF from the page images.
     var pdf = buildPdfFromImages(pages);
-    downloadBlob(pdf, 'scan-report-' + Date.now() + '.pdf');
-    log('گزارش PDF ذخیره شد (' + pages.length + ' صفحه)', 'success');
+    var isNative = isCapacitor();
+    var filename = 'scan-report-' + new Date().getTime() + '.pdf';
+    savePdfToDevice(pdf, filename, isNative).then(function (savePath) {
+        showReportModal(savePath, isNative);
+        log('گزارش PDF ذخیره شد (' + pages.length + ' صفحه): ' + savePath, 'success');
+    }, function (err) {
+        alert('خطا در ذخیره‌سازی گزارش: ' + (err && err.message ? err.message : err));
+        log('خطای ذخیره PDF: ' + (err && err.message ? err.message : err), 'error');
+    });
 }
 
 /* Assemble a valid PDF with one (already-JPEG) image per page. */
