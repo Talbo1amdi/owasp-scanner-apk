@@ -138,7 +138,7 @@
     <div class="modal-mask" id="reportModal">
         <div class="modal-card">
             <h2>گزارش PDF ذخیره شد</h2>
-            <p>فایل گزارش اسکن بر روی دستگاه ذخیره شد. می‌توانید آن را در مسیر زیر بیابید یا با دکمه‌ی اشتراک‌گذاری ارسال کنید:</p>
+            <p>فایل گزارش PDF با موفقیت در محلی که انتخاب کردید ذخیره شد.</p>
             <div class="path-label">محل ذخیره‌سازی (می‌توانید کپی کنید):</div>
             <div class="path-row" id="reportPath"></div>
             <div style="text-align:center; color:#888; font-size:0.8rem; margin-top:6px;" id="reportHint"></div>
@@ -1007,45 +1007,65 @@ function blobToBase64(blob) {
     });
 }
 
-/* Save the PDF to a real, visible folder on the device (Documents/OWASP-Scanner).
-   Falls back to a simple download on the web. Returns the full path. */
+/* Save the PDF by opening the system "Save as / Copy to..." picker so the user
+   chooses the destination folder and file name. Returns the resolved path. */
 async function savePdfToDevice(blob, filename, isNative) {
     if (!isNative) {
         downloadBlob(blob, filename);
-        return 'دانلود خودکار (مرورگر وب) — ' + filename;
+        return { path: 'دانلود خودکار (مرورگر وب) — ' + filename, fileUrl: '', canceled: false };
     }
     var cap = window.Capacitor;
     var dataUrl = await blobToBase64(blob);          // data:application/pdf;base64,....
     var b64 = dataUrl.split(',')[1];
-    var androidPath = '/storage/emulated/0/Documents/OWASP-Scanner/' + filename;
-    // Public Documents folder -> Android: /storage/emulated/0/Documents/OWASP-Scanner/...
-    var writeRes = await cap.nativePromise('Filesystem', 'writeFile', {
-        path: 'OWASP-Scanner/' + filename,
-        directory: 'DOCUMENTS',
+    // Android SAF dialog: "Save as / Copy to..." — user picks the folder & name.
+    var res = await cap.nativePromise('SaveAs', 'savePdf', {
         data: b64,
-        recursive: true
+        fileName: filename,
+        mimeType: 'application/pdf'
     });
-    // Prefer the real file:// uri returned by the plugin; fall back to the
-    // well-known Android Documents path so display + share always work.
-    var uri = writeRes && writeRes.uri ? writeRes.uri : '';
-    var fileUrl = '';
-    if (typeof uri === 'string' && uri.indexOf('file://') === 0) {
-        fileUrl = uri;
-    } else if (typeof uri === 'string' && uri.indexOf('/') === 0) {
-        fileUrl = 'file://' + uri;
-    } else {
-        fileUrl = 'file://' + androidPath;
+    if (res && res.canceled) {
+        // User cancelled the picker -> keep a copy in Documents so nothing is lost.
+        var backup = await savePdfToDocuments(b64, filename);
+        _lastReportFileUrl = backup.fileUrl;
+        return {
+            path: backup.path,
+            fileUrl: backup.fileUrl,
+            canceled: true,
+            hint: 'پنجرهٔ «ذخیره به‌صورت» بسته شد؛ یک نسخه به‌صورت خودکار در مسیر پشتیبان ذخیره شد:'
+        };
     }
-    _lastReportFileUrl = fileUrl;
-    return fileUrl.replace(/^file:\/\//, '');
+    var savedPath = (res && res.path) || (res && res.uri) || filename;
+    _lastReportFileUrl = savedPath.indexOf('file://') === 0 ? savedPath
+        : (savedPath.indexOf('/') === 0 ? 'file://' + savedPath : savedPath);
+    return { path: savedPath, fileUrl: _lastReportFileUrl, canceled: false, hint: '' };
 }
 
-function showReportModal(path, isNative) {
+/* Fallback: write a copy into Documents/OWASP-Scanner (no picker). */
+async function savePdfToDocuments(b64, filename) {
+    var cap = window.Capacitor;
+    var androidPath = '/storage/emulated/0/Documents/OWASP-Scanner/' + filename;
+    try {
+        var writeRes = await cap.nativePromise('Filesystem', 'writeFile', {
+            path: 'OWASP-Scanner/' + filename,
+            directory: 'DOCUMENTS',
+            data: b64,
+            recursive: true
+        });
+        var uri = writeRes && writeRes.uri ? writeRes.uri : '';
+        var fileUrl = uri.indexOf('file://') === 0 ? uri
+            : (uri.indexOf('/') === 0 ? 'file://' + uri : 'file://' + androidPath);
+        return { path: fileUrl.replace(/^file:\/\//, ''), fileUrl: fileUrl };
+    } catch (e) {
+        return { path: androidPath, fileUrl: 'file://' + androidPath };
+    }
+}
+
+function showReportModal(save) {
+    var path = save && save.path ? save.path : '(نامشخص)';
     _lastReportPath = path;
     document.getElementById('reportPath').textContent = path;
-    document.getElementById('reportHint').textContent = isNative
-        ? 'برای دسترسی سریع‌تر دکمه‌ی «اشتراک‌گذاری / باز کردن» را بزنید.'
-        : 'در حالت وب، فایل در پوشه‌ی دانلود مرورگر ذخیره می‌شود.';
+    document.getElementById('reportHint').textContent = (save && save.hint) ? save.hint
+        : (save && save.canceled ? '' : 'فایل در مسیر انتخابی شما ذخیره شد.');
     document.getElementById('reportModal').classList.add('show');
 }
 
@@ -1251,9 +1271,9 @@ function buildPdfReport() {
     var pdf = buildPdfFromImages(pages);
     var isNative = isCapacitor();
     var filename = 'scan-report-' + new Date().getTime() + '.pdf';
-    savePdfToDevice(pdf, filename, isNative).then(function (savePath) {
-        showReportModal(savePath, isNative);
-        log('گزارش PDF ذخیره شد (' + pages.length + ' صفحه): ' + savePath, 'success');
+    savePdfToDevice(pdf, filename, isNative).then(function (save) {
+        showReportModal(save);
+        log('گزارش PDF ذخیره شد (' + pages.length + ' صفحه): ' + (save.path), 'success');
     }, function (err) {
         alert('خطا در ذخیره‌سازی گزارش: ' + (err && err.message ? err.message : err));
         log('خطای ذخیره PDF: ' + (err && err.message ? err.message : err), 'error');
