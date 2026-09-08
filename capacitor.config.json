@@ -1,5 +1,5 @@
 {
-  "appId": "ir.owasp.scanner",
+  "appId": "ir.securitySite.scanner",
   "appName": "اسکنر امنیتی",
   "webDir": "www",
   "server": {

@@ -12,7 +12,7 @@ android {
     namespace "ir.owasp.scanner"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "ir.owasp.scanner"
+        applicationId "ir.securitySite.scanner"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
