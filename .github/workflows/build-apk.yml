@@ -11,6 +11,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -78,6 +80,7 @@ jobs:
         with:
           tag_name: app-v1.0.0
           name: OWASP Scanner v1.0.0
+          draft: true
           files: |
             android/app/build/outputs/apk/release/*.apk
             android/app/build/outputs/bundle/release/*.aab
